@@ -44,6 +44,10 @@ const corsOptions = {
 app.options("*", cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use((req, _res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 async function authenticate(req, res, next) {
