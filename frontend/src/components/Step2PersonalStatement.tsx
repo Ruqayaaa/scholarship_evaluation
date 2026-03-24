@@ -20,21 +20,67 @@ interface Step2Props {
 
 type SectionKey = "valuesGoals" | "whyMajor" | "interests" | "summary";
 
-// Split extracted text by paragraphs and distribute across the 4 sections
-function distributeText(raw: string): [string, string, string, string] {
+// Route each paragraph to the most relevant section using keyword scoring.
+// valuesGoals  → "Interests & Values"
+// whyMajor     → "Academic Commitment"
+// interests    → "Clarity of Vision"
+// summary      → "Closing Summary"
+const SECTION_KEYWORDS: Record<string, string[]> = {
+  valuesGoals: [
+    "interest", "passion", "value", "believe", "love", "care", "dedicated",
+    "committed", "motivated", "driven", "enthusiast", "community", "service",
+    "inspired", "meaningful", "purpose",
+  ],
+  whyMajor: [
+    "academic", "study", "gpa", "grade", "course", "degree", "major",
+    "university", "research", "scholar", "achievement", "honour", "honor",
+    "curriculum", "programme", "field", "discipline", "professor",
+  ],
+  interests: [
+    "future", "goal", "vision", "plan", "aspire", "aim", "career", "hope",
+    "five year", "ten year", "contribute", "impact", "see myself", "pursue",
+    "intend", "ambition", "opportunity",
+  ],
+  summary: [
+    "conclude", "in conclusion", "ultimately", "stand out", "confident",
+    "ready", "finally", "overall", "therefore", "thus", "grateful",
+    "appreciate", "thank", "look forward",
+  ],
+};
+
+function distributeText(raw: string): { valuesGoals: string; whyMajor: string; interests: string; summary: string } {
   const paragraphs = raw
     .split(/\n{2,}/)
     .map((p) => p.replace(/\n/g, " ").trim())
     .filter(Boolean);
-  if (paragraphs.length === 0) return ["", "", "", ""];
-  if (paragraphs.length === 1) return [paragraphs[0], "", "", ""];
-  const q = Math.ceil(paragraphs.length / 4);
-  return [
-    paragraphs.slice(0, q).join("\n\n"),
-    paragraphs.slice(q, q * 2).join("\n\n"),
-    paragraphs.slice(q * 2, q * 3).join("\n\n"),
-    paragraphs.slice(q * 3).join("\n\n"),
-  ];
+
+  if (paragraphs.length === 0) return { valuesGoals: "", whyMajor: "", interests: "", summary: "" };
+  if (paragraphs.length === 1) return { valuesGoals: paragraphs[0], whyMajor: "", interests: "", summary: "" };
+
+  const buckets: Record<string, string[]> = { valuesGoals: [], whyMajor: [], interests: [], summary: [] };
+
+  // Last paragraph almost always closes the statement
+  buckets.summary.push(paragraphs[paragraphs.length - 1]);
+
+  for (let i = 0; i < paragraphs.length - 1; i++) {
+    const lower = paragraphs[i].toLowerCase();
+    let bestKey = "valuesGoals";
+    let bestScore = 0;
+
+    for (const [key, words] of Object.entries(SECTION_KEYWORDS)) {
+      const score = words.reduce((acc, w) => acc + (lower.includes(w) ? 1 : 0), 0);
+      if (score > bestScore) { bestScore = score; bestKey = key; }
+    }
+
+    buckets[bestKey].push(paragraphs[i]);
+  }
+
+  return {
+    valuesGoals: buckets.valuesGoals.join("\n\n"),
+    whyMajor:    buckets.whyMajor.join("\n\n"),
+    interests:   buckets.interests.join("\n\n"),
+    summary:     buckets.summary.join("\n\n"),
+  };
 }
 
 async function extractPdfText(file: File, onProgress: (p: number) => void): Promise<string> {
@@ -120,8 +166,8 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
   }
 
   function fillSectionsFromOcr() {
-    const [s1, s2, s3, s4] = distributeText(ocrText);
-    onUpdate({ ...data, valuesGoals: s1, whyMajor: s2, interests: s3, summary: s4 });
+    const distributed = distributeText(ocrText);
+    onUpdate({ ...data, ...distributed });
     setOpenSections({ valuesGoals: true, whyMajor: true, interests: true, summary: true });
   }
 

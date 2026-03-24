@@ -62,22 +62,109 @@ const SECTION_HEADERS: { regex: RegExp; key: string }[] = [
   { regex: /^(LEADERSHIP|EXTRACURRICULAR|ACTIVITIES|CLUBS?)\b/i,   key: "leadership" },
 ];
 
-function parseResumeText(raw: string): Record<string, string[]> {
-  const lines = raw.split("\n");
-  const sections: Record<string, string[]> = {};
+// Split raw text into named sections, preserving blank lines as entry separators
+function splitIntoSections(raw: string): Record<string, string> {
+  const result: Record<string, string> = {};
   let currentKey: string | null = null;
-  for (const line of lines) {
+  let currentLines: string[] = [];
+
+  for (const line of raw.split("\n")) {
     const trimmed = line.trim();
-    if (!trimmed) continue;
     const match = SECTION_HEADERS.find((h) => h.regex.test(trimmed));
     if (match) {
+      if (currentKey) result[currentKey] = currentLines.join("\n").trim();
       currentKey = match.key;
-      if (!sections[currentKey]) sections[currentKey] = [];
+      currentLines = [];
     } else if (currentKey) {
-      sections[currentKey].push(trimmed);
+      currentLines.push(line); // keep blank lines — they separate entries
     }
   }
-  return sections;
+  if (currentKey) result[currentKey] = currentLines.join("\n").trim();
+  return result;
+}
+
+// Split a section's text into individual entry blocks (separated by blank lines)
+function toBlocks(text: string): string[][] {
+  const blocks: string[][] = [];
+  let current: string[] = [];
+  for (const line of text.split("\n")) {
+    if (!line.trim()) {
+      if (current.length) { blocks.push(current); current = []; }
+    } else {
+      current.push(line.trim());
+    }
+  }
+  if (current.length) blocks.push(current);
+  return blocks.length ? blocks : [];
+}
+
+// Try to extract a year range from a line, e.g. "2021 – 2025" or "Jan 2022 – Present"
+function extractYears(line: string): { startYear: string; endYear: string } | null {
+  const m = line.match(/\b(20\d{2})\s*[-–—]\s*(20\d{2}|present)/i);
+  if (m) return { startYear: m[1], endYear: m[2].toLowerCase() === "present" ? "present" : m[2] };
+  return null;
+}
+
+// Try to extract a month-year pair for month inputs, e.g. "Jun 2023"
+function extractMonthYear(text: string): { start: string; end: string } {
+  const MONTHS: Record<string, string> = { jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12" };
+  const pattern = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(20\d{2})\s*[-–—]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(20\d{2}|present)/gi;
+  const m = pattern.exec(text);
+  if (m) {
+    const sm = MONTHS[m[1].toLowerCase().slice(0,3)] ?? "01";
+    const em = MONTHS[m[3].toLowerCase().slice(0,3)] ?? "01";
+    return { start: `${m[2]}-${sm}`, end: m[4].toLowerCase() === "present" ? "" : `${m[4]}-${em}` };
+  }
+  return { start: "", end: "" };
+}
+
+// Parse one education block into structured fields
+function parseEduBlock(lines: string[]): Omit<EducationItem, "id"> {
+  let institution = "", degree = "", startYear = "", endYear = "", gpa = "";
+  for (const line of lines) {
+    const gpaM = line.match(/gpa[:\s]+([0-9.]+)/i) || line.match(/\b([0-9]\.[0-9]+)\s*\/\s*4/i);
+    const degreeM = line.match(/\b(bsc|bba|ba|ma|msc|mba|phd|bachelor|master|diploma|associate|b\.sc|m\.sc)/i);
+    const yearRange = extractYears(line);
+    if (gpaM) { gpa = gpaM[1]; }
+    else if (yearRange) { startYear = yearRange.startYear; endYear = yearRange.endYear; }
+    else if (degreeM) { degree = line; }
+    else if (!institution) { institution = line; }
+  }
+  return { institution, degree, startYear, endYear, gpa };
+}
+
+// Parse one experience/community/leadership block
+function parseRoleBlock(lines: string[]): { title: string; org: string; startDate: string; endDate: string; description: string } {
+  const firstLine = lines[0] ?? "";
+  let title = "", org = "";
+
+  // "Title — Organization" or "Title | Organization"
+  const dashM = firstLine.match(/^(.+?)\s*[—–|]\s*(.+?)(?:\s*[\|(].*)?$/);
+  if (dashM) { title = dashM[1].trim(); org = dashM[2].trim(); }
+  else { title = firstLine; }
+
+  // Remove trailing date from org if present
+  org = org.replace(/\s*\(?.*(20\d{2}|present).*\)?$/i, "").trim();
+
+  const fullText = lines.join(" ");
+  const { start, end } = extractMonthYear(fullText);
+
+  // Bullet lines as description
+  const bullets = lines.slice(1)
+    .filter((l) => !extractYears(l) && !extractMonthYear(l).start)
+    .filter((l) => l.length > 2)
+    .map((l) => l.replace(/^[•\-*]\s*/, "").trim())
+    .filter(Boolean);
+
+  return { title, org, startDate: start, endDate: end, description: bullets.join("\n") };
+}
+
+// Parse award lines — each non-empty line is a separate award; try to pull year out
+function parseAwardLine(line: string): Omit<AwardItem, "id"> {
+  const yearM = line.match(/\b(20\d{2})\b/);
+  const year = yearM ? yearM[1] : "";
+  const name = line.replace(/\(?20\d{2}\)?/g, "").replace(/[-–,]/g, " ").trim();
+  return { name, year, description: "" };
 }
 
 // ── Reusable sub-components ──────────────────────────────────────────────────
@@ -199,27 +286,66 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
   }
 
   function fillFieldsFromOcr() {
-    const parsed = parseResumeText(ocrText);
+    const sections = splitIntoSections(ocrText);
     const updates: Partial<typeof data> = {};
 
-    if (parsed.education?.length) {
-      updates.education = [{ id: uid(), institution: parsed.education.join("\n"), degree: "", startYear: "", endYear: "", gpa: "" }];
+    // Education → parse each block into structured fields
+    if (sections.education) {
+      const blocks = toBlocks(sections.education);
+      if (blocks.length) {
+        updates.education = blocks.map((lines) => {
+          const f = parseEduBlock(lines);
+          return { id: uid(), ...f };
+        });
+      }
     }
-    if (parsed.experience?.length) {
-      updates.experience = [{ id: uid(), jobTitle: "See extracted details", organization: "", startDate: "", endDate: "", responsibilities: parsed.experience.join("\n") }];
+
+    // Research & Work Experience → parse each block into title/org/dates/responsibilities
+    if (sections.experience) {
+      const blocks = toBlocks(sections.experience);
+      if (blocks.length) {
+        updates.experience = blocks.map((lines) => {
+          const f = parseRoleBlock(lines);
+          return { id: uid(), jobTitle: f.title, organization: f.org, startDate: f.startDate, endDate: f.endDate, responsibilities: f.description };
+        });
+      }
     }
-    if (parsed.skills?.length) {
-      const tags = parsed.skills.join(", ").split(/[,;•]+/).map((s) => s.trim()).filter(Boolean);
+
+    // Skills → split on common delimiters into individual tags
+    if (sections.skills) {
+      const tags = sections.skills
+        .split(/[,;•|\n]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 1);
       updates.skills = [...new Set([...data.skills, ...tags])];
     }
-    if (parsed.awards?.length) {
-      updates.awards = parsed.awards.map((line) => ({ id: uid(), name: line, year: "", description: "" }));
+
+    // Awards → each non-empty line becomes its own entry with year extracted
+    if (sections.awards) {
+      const lines = sections.awards.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      updates.awards = lines.map((line: string) => ({ id: uid(), ...parseAwardLine(line) }));
     }
-    if (parsed.community?.length) {
-      updates.community = [{ id: uid(), organization: "See extracted details", role: "", startDate: "", endDate: "", description: parsed.community.join("\n") }];
+
+    // Community Service → parse each block into org/role/dates/description
+    if (sections.community) {
+      const blocks = toBlocks(sections.community);
+      if (blocks.length) {
+        updates.community = blocks.map((lines) => {
+          const f = parseRoleBlock(lines);
+          return { id: uid(), organization: f.org || f.title, role: f.org ? f.title : "", startDate: f.startDate, endDate: f.endDate, description: f.description };
+        });
+      }
     }
-    if (parsed.leadership?.length) {
-      updates.leadership = [{ id: uid(), role: "See extracted details", organization: "", startDate: "", endDate: "", description: parsed.leadership.join("\n") }];
+
+    // Leadership & Extracurriculars → parse each block into role/org/dates/description
+    if (sections.leadership) {
+      const blocks = toBlocks(sections.leadership);
+      if (blocks.length) {
+        updates.leadership = blocks.map((lines) => {
+          const f = parseRoleBlock(lines);
+          return { id: uid(), role: f.title, organization: f.org, startDate: f.startDate, endDate: f.endDate, description: f.description };
+        });
+      }
     }
 
     onUpdate({ ...data, ...updates });
