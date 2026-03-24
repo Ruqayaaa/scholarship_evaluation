@@ -793,10 +793,6 @@ app.patch("/admin/applicants/:id/decision", async (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-export default app;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
