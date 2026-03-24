@@ -32,17 +32,32 @@ async function extractPdfText(file: File, onProgress: (p: number) => void): Prom
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = "";
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = (content.items as any[])
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    fullText += pageText + "\n\n";
+
+    // Group text items by their y-coordinate so items on the same visual line
+    // are joined together, rather than everything collapsed onto one line.
+    const yMap = new Map<number, string[]>();
+    for (const item of content.items as any[]) {
+      if (!("str" in item) || !item.str) continue;
+      // Round y to the nearest 2 units to tolerate sub-pixel differences
+      const y = Math.round((item.transform?.[5] ?? 0) / 2) * 2;
+      if (!yMap.has(y)) yMap.set(y, []);
+      yMap.get(y)!.push(item.str);
+    }
+
+    // Sort descending: in PDF coords y increases upward, so higher y = top of page
+    const pageLines = [...yMap.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([, parts]) => parts.join("").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+    fullText += pageLines.join("\n") + "\n\n";
     onProgress(i / pdf.numPages);
   }
+
   return fullText.trim();
 }
 
@@ -53,14 +68,24 @@ async function extractImageText(file: File, onProgress: (p: number) => void): Pr
   return result.data.text.trim();
 }
 
-const SECTION_HEADERS: { regex: RegExp; key: string }[] = [
-  { regex: /^(EDUCATION|ACADEMIC|ACADEMICS)\b/i,                   key: "education" },
-  { regex: /^(EXPERIENCE|WORK|RESEARCH|INTERNSHIP|EMPLOYMENT)\b/i, key: "experience" },
-  { regex: /^(SKILLS?|CERTIFICATIONS?|TECHNOLOGIES)\b/i,           key: "skills" },
-  { regex: /^(AWARDS?|RECOGNITION|HONORS?|ACHIEVEMENTS?)\b/i,      key: "awards" },
-  { regex: /^(COMMUNITY|VOLUNTEER|SERVICE|VOLUNTEERING)\b/i,       key: "community" },
-  { regex: /^(LEADERSHIP|EXTRACURRICULAR|ACTIVITIES|CLUBS?)\b/i,   key: "leadership" },
+const SECTION_PATTERNS: { regex: RegExp; key: string }[] = [
+  { regex: /\beducation\b/i,                                           key: "education" },
+  { regex: /\bexperience\b|\binternship\b|\bemployment\b/i,           key: "experience" },
+  { regex: /\bskills?\b|\bcertification\b|\btechnolog/i,              key: "skills" },
+  { regex: /\baward\b|\brecognition\b|\bhonor\b|\bachievement\b/i,    key: "awards" },
+  { regex: /\bcommunity\b|\bvolunteer\b|\bservice\b/i,                key: "community" },
+  { regex: /\bleadership\b|\bextracurricular\b|\bclub\b|\bactivit/i,  key: "leadership" },
 ];
+
+// A line qualifies as a section header if it is short (≤ 50 chars),
+// has at most 5 words, no commas or periods, and matches one of the patterns.
+function isSectionHeader(trimmed: string): string | null {
+  if (!trimmed || trimmed.length > 50) return null;
+  if (trimmed.includes(",") || trimmed.includes(".")) return null;
+  if (trimmed.split(/\s+/).length > 5) return null;
+  const match = SECTION_PATTERNS.find((h) => h.regex.test(trimmed));
+  return match ? match.key : null;
+}
 
 // Split raw text into named sections, preserving blank lines as entry separators
 function splitIntoSections(raw: string): Record<string, string> {
@@ -70,13 +95,13 @@ function splitIntoSections(raw: string): Record<string, string> {
 
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
-    const match = SECTION_HEADERS.find((h) => h.regex.test(trimmed));
-    if (match) {
+    const key = isSectionHeader(trimmed);
+    if (key) {
       if (currentKey) result[currentKey] = currentLines.join("\n").trim();
-      currentKey = match.key;
+      currentKey = key;
       currentLines = [];
     } else if (currentKey) {
-      currentLines.push(line); // keep blank lines — they separate entries
+      currentLines.push(line);
     }
   }
   if (currentKey) result[currentKey] = currentLines.join("\n").trim();
@@ -288,6 +313,14 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
   function fillFieldsFromOcr() {
     const sections = splitIntoSections(ocrText);
     const updates: Partial<typeof data> = {};
+
+    // If no sections were detected (no recognisable headers), put everything
+    // into the experience responsibilities field so nothing is lost.
+    if (Object.keys(sections).length === 0) {
+      updates.experience = [{ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: ocrText.trim() }];
+      onUpdate({ ...data, ...updates });
+      return;
+    }
 
     // Education → parse each block into structured fields
     if (sections.education) {

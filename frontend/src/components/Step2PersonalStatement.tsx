@@ -87,17 +87,28 @@ async function extractPdfText(file: File, onProgress: (p: number) => void): Prom
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = "";
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = (content.items as any[])
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    fullText += pageText + "\n\n";
+
+    const yMap = new Map<number, string[]>();
+    for (const item of content.items as any[]) {
+      if (!("str" in item) || !item.str) continue;
+      const y = Math.round((item.transform?.[5] ?? 0) / 2) * 2;
+      if (!yMap.has(y)) yMap.set(y, []);
+      yMap.get(y)!.push(item.str);
+    }
+
+    const pageLines = [...yMap.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([, parts]) => parts.join("").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+    fullText += pageLines.join("\n") + "\n\n";
     onProgress(i / pdf.numPages);
   }
+
   return fullText.trim();
 }
 
