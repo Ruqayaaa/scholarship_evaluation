@@ -9,8 +9,7 @@ import type { ApplicationData } from "../application";
 import StepIndicator from "../components/StepIndicator";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-
-const NODE_API = "http://localhost:5000";
+import { NODE_API } from "../lib/api";
 
 const DECISION_STYLE: Record<string, { bg: string; border: string; color: string }> = {
   Accepted:   { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)", color: "#166534" },

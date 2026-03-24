@@ -3,7 +3,7 @@
 import { supabase } from "../lib/supabase";
 
 const PYTHON_API = import.meta.env.VITE_PYTHON_API || "http://localhost:8000";
-const NODE_API = "http://localhost:5000";
+const NODE_API = import.meta.env.VITE_NODE_API || "http://localhost:5000";
 
 async function post(baseUrl, path, data, token) {
   const headers = { "Content-Type": "application/json" };

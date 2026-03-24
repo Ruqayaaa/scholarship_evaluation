@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export const NODE_API = "http://localhost:5000";
+export const NODE_API = import.meta.env.VITE_NODE_API || "http://localhost:5000";
 
 export async function adminFetch(path: string, options: RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession();

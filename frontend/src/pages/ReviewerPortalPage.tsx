@@ -5,8 +5,7 @@ import ApplicantList from "../components/ApplicantList";
 import EvaluationScreen from "../components/EvaluationScreen";
 import type { Applicant, PsScores, ResumeScores } from "../types";
 import { supabase } from "../lib/supabase";
-
-const NODE_API = "http://localhost:5000";
+import { NODE_API } from "../lib/api";
 
 type BackendApplicant = {
   id: string;
