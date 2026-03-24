@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
-import { FileUpload } from "./FileUpload";
+import { useMemo, useRef, useState } from "react";
+import * as pdfjsLib from "pdfjs-dist";
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import Tesseract from "tesseract.js";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface Step2Props {
   data: {
@@ -16,6 +20,50 @@ interface Step2Props {
 
 type SectionKey = "valuesGoals" | "whyMajor" | "interests" | "summary";
 
+// Split extracted text by paragraphs and distribute across the 4 sections
+function distributeText(raw: string): [string, string, string, string] {
+  const paragraphs = raw
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\n/g, " ").trim())
+    .filter(Boolean);
+  if (paragraphs.length === 0) return ["", "", "", ""];
+  if (paragraphs.length === 1) return [paragraphs[0], "", "", ""];
+  const q = Math.ceil(paragraphs.length / 4);
+  return [
+    paragraphs.slice(0, q).join("\n\n"),
+    paragraphs.slice(q, q * 2).join("\n\n"),
+    paragraphs.slice(q * 2, q * 3).join("\n\n"),
+    paragraphs.slice(q * 3).join("\n\n"),
+  ];
+}
+
+async function extractPdfText(file: File, onProgress: (p: number) => void): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = (content.items as any[])
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    fullText += pageText + "\n\n";
+    onProgress(i / pdf.numPages);
+  }
+  return fullText.trim();
+}
+
+async function extractImageText(file: File, onProgress: (p: number) => void): Promise<string> {
+  const result = await Tesseract.recognize(file, "eng", {
+    logger: (m: any) => {
+      if (m.status === "recognizing text") onProgress(m.progress);
+    },
+  });
+  return result.data.text.trim();
+}
+
 export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2Props) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
@@ -24,6 +72,13 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
     interests: false,
     summary: false,
   });
+
+  // OCR state
+  const [ocrText, setOcrText] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrError, setOcrError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (field: SectionKey, value: string) => {
     onUpdate({ ...data, [field]: value });
@@ -35,110 +90,93 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
   }, [data.valuesGoals, data.whyMajor, data.interests, data.summary]);
 
   const isOverLimit = wordCount > 1000;
-
   const toggle = (k: SectionKey) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
-
   const handleSaveDraft = () => alert("Draft saved successfully!");
 
-  const Section = ({
-    k,
-    title,
-    example,
-    placeholder,
-    value,
-  }: {
-    k: SectionKey;
-    title: string;
-    example: string;
-    placeholder: string;
-    value: string;
-  }) => {
-    const done = String(value).trim().length > 0;
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsExtracting(true);
+    setOcrProgress(0);
+    setOcrError("");
+    setOcrText("");
+    try {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const text = isPdf
+        ? await extractPdfText(file, setOcrProgress)
+        : await extractImageText(file, setOcrProgress);
+      if (!text) {
+        setOcrError("No text could be extracted. Try a clearer image or a text-based PDF.");
+      } else {
+        setOcrText(text);
+      }
+    } catch {
+      setOcrError("Extraction failed. Please try again with a different file.");
+    } finally {
+      setIsExtracting(false);
+      setOcrProgress(0);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
+  function fillSectionsFromOcr() {
+    const [s1, s2, s3, s4] = distributeText(ocrText);
+    onUpdate({ ...data, valuesGoals: s1, whyMajor: s2, interests: s3, summary: s4 });
+    setOpenSections({ valuesGoals: true, whyMajor: true, interests: true, summary: true });
+  }
+
+  const SECTIONS: { k: SectionKey; title: string; example: string; placeholder: string }[] = [
+    {
+      k: "valuesGoals",
+      title: "Interests & Values",
+      example: '"I am deeply passionate about environmental sustainability and driven by the value of making technology accessible to underserved communities."',
+      placeholder: "Describe your personal interests, passions, and core values. What topics or causes motivate you? What principles guide your decisions?",
+    },
+    {
+      k: "whyMajor",
+      title: "Academic Commitment",
+      example: '"Maintaining a 3.9 GPA while taking advanced coursework in data science reflects my dedication to academic excellence and continuous learning."',
+      placeholder: "Describe your academic achievements, dedication to learning, and scholarly pursuits. How have you demonstrated commitment to your field of study?",
+    },
+    {
+      k: "interests",
+      title: "Clarity of Vision",
+      example: '"In five years, I see myself leading a team developing AI-driven healthcare diagnostics in Bahrain, bridging the gap between technology and public health."',
+      placeholder: "Explain your clear vision for the future. Where do you see yourself in 5–10 years? How does this program prepare you for that path?",
+    },
+    {
+      k: "summary",
+      title: "Closing Summary",
+      example: '"My combination of technical skills, community leadership, and unwavering dedication makes me confident I will contribute meaningfully to this program."',
+      placeholder: "End with a strong, well-organized summary of why you stand out and what you will contribute to the program and community.",
+    },
+  ];
+
+  const Section = ({ k, title, example, placeholder, value }: { k: SectionKey; title: string; example: string; placeholder: string; value: string }) => {
+    const done = String(value).trim().length > 0;
     return (
-      <div
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.96)",
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ border: "1px solid var(--border)", borderRadius: 14, background: "rgba(255,255,255,0.96)", overflow: "hidden" }}>
         <button
           type="button"
           onClick={() => toggle(k)}
-          style={{
-            width: "100%",
-            textAlign: "left",
-            border: "none",
-            background: "transparent",
-            padding: "14px 16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
+          style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              aria-hidden
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                background: done ? "#16a34a" : "#cbd5e1",
-                boxShadow: done ? "0 0 0 4px rgba(22,163,74,0.12)" : "none",
-              }}
-            />
+            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: done ? "#16a34a" : "#cbd5e1", boxShadow: done ? "0 0 0 4px rgba(22,163,74,0.12)" : "none" }} />
             <span style={{ fontWeight: 900, color: "var(--navy)" }}>{title}</span>
           </div>
-
-          <span style={{ color: "var(--muted)", fontWeight: 800 }}>
-            {openSections[k] ? "−" : "+"}
-          </span>
+          <span style={{ color: "var(--muted)", fontWeight: 800 }}>{openSections[k] ? "−" : "+"}</span>
         </button>
-
         {openSections[k] && (
           <div style={{ padding: "0 16px 16px" }}>
             <div style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 10 }}>
               <span style={{ fontWeight: 800 }}>Example:</span> {example}
             </div>
-
             <div className="input-wrap" style={{ alignItems: "stretch" }}>
-              <textarea
-                className="input"
-                style={{ minHeight: 150, resize: "vertical" }}
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => handleChange(k, e.target.value)}
-              />
+              <textarea className="input" style={{ minHeight: 150, resize: "vertical" }} placeholder={placeholder} value={value} onChange={(e) => handleChange(k, e.target.value)} />
             </div>
           </div>
         )}
-      </div>
-    );
-  };
-
-  const UploadStatus = () => {
-    const hasFile = data.uploadedFile?.length > 0;
-
-    return (
-      <div
-        style={{
-          marginTop: 12,
-          padding: 14,
-          borderRadius: 12,
-          border: `1px solid ${hasFile ? "rgba(22,163,74,0.25)" : "rgba(245,158,11,0.28)"}`,
-          background: hasFile ? "rgba(22,163,74,0.08)" : "rgba(245,158,11,0.10)",
-          color: hasFile ? "#166534" : "#92400e",
-          fontWeight: 700,
-          lineHeight: 1.5,
-        }}
-      >
-        {hasFile
-          ? "✓ Document uploaded successfully. Now complete the validation fields below to structure your statement."
-          : "⚠ Please upload your personal statement document to proceed with validation."}
       </div>
     );
   };
@@ -148,198 +186,128 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
       <div className="modal" style={{ maxWidth: 860 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Personal Statement Preview</div>
-          <button type="button" className="ghost-btn" onClick={() => setIsPreviewOpen(false)}>
-            Close
-          </button>
+          <button type="button" className="ghost-btn" onClick={() => setIsPreviewOpen(false)}>Close</button>
         </div>
-
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-          {data.valuesGoals && (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Values & Future Goals</div>
-              <div style={{ whiteSpace: "pre-wrap", color: "var(--navy)", lineHeight: 1.7 }}>
-                {data.valuesGoals}
+          {SECTIONS.map(({ k, title }) =>
+            data[k] ? (
+              <div key={k}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>{title}</div>
+                <div style={{ whiteSpace: "pre-wrap", color: "var(--navy)", lineHeight: 1.7 }}>{data[k]}</div>
               </div>
-            </div>
+            ) : null
           )}
-
-          {data.whyMajor && (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Why This Major?</div>
-              <div style={{ whiteSpace: "pre-wrap", color: "var(--navy)", lineHeight: 1.7 }}>
-                {data.whyMajor}
-              </div>
-            </div>
-          )}
-
-          {data.interests && (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Personal Interests & Personality</div>
-              <div style={{ whiteSpace: "pre-wrap", color: "var(--navy)", lineHeight: 1.7 }}>
-                {data.interests}
-              </div>
-            </div>
-          )}
-
-          {data.summary && (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Summary & Closing Thoughts</div>
-              <div style={{ whiteSpace: "pre-wrap", color: "var(--navy)", lineHeight: 1.7 }}>
-                {data.summary}
-              </div>
-            </div>
-          )}
-
           {!data.valuesGoals && !data.whyMajor && !data.interests && !data.summary && (
-            <div style={{ color: "var(--muted)", textAlign: "center", padding: "22px 0" }}>
-              Start filling out the sections to preview your statement.
-            </div>
+            <div style={{ color: "var(--muted)", textAlign: "center", padding: "22px 0" }}>Start filling out the sections to preview your statement.</div>
           )}
         </div>
       </div>
     </div>
   );
 
+  const pct = Math.round(ocrProgress * 100);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Header */}
       <div>
-        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>
-          Step 2 of 6 — Personal Statement
-        </div>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Step 2 of 6 — Personal Statement</div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-          Upload your personal statement document, then validate and structure the content in the fields below.
+          Fill in each section below, or upload your existing personal statement to extract text automatically.
+          Scored on: Interests & Values, Academic Commitment, Clarity of Vision, Organization, and Language Quality.
         </div>
       </div>
 
-      {/* 1) Upload */}
+      {/* OCR Upload Card */}
       <div className="card" style={{ width: "100%" }}>
-        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>
-          1. Upload Your Personal Statement
-        </div>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Upload & Extract Text (OCR)</div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 14 }}>
-          Upload your personal statement document (PDF or Word). This is required for processing.
+          Have an existing personal statement? Upload an image or PDF — the text will be extracted so you can review and fill the sections below.
         </div>
 
-        <FileUpload
-          label="Personal Statement Document (Required)"
-          description="Upload a PDF or Word document containing your personal statement. After uploading, you'll validate the content in the structured fields below."
-          acceptedFormats=".pdf,.docx,.doc"
-          maxSize={10}
-          multiple={false}
-          files={data.uploadedFile}
-          onFilesChange={(files) => onUpdate({ ...data, uploadedFile: files })}
-        />
+        <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={handleFileSelect} />
 
-        <UploadStatus />
+        <button
+          type="button"
+          disabled={isExtracting}
+          onClick={() => { setOcrError(""); fileRef.current?.click(); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", backgroundColor: isExtracting ? "#94a3b8" : "var(--blue)", color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: isExtracting ? "not-allowed" : "pointer" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          {isExtracting ? `Extracting… ${pct}%` : "Upload & Extract Text"}
+        </button>
+
+        {isExtracting && (
+          <div style={{ marginTop: 10, height: 4, backgroundColor: "#e5e7eb", borderRadius: 4, overflow: "hidden", maxWidth: 280 }}>
+            <div style={{ height: "100%", width: `${pct}%`, backgroundColor: "var(--blue)", borderRadius: 4, transition: "width 0.3s" }} />
+          </div>
+        )}
+
+        {ocrError && <p style={{ marginTop: 8, fontSize: 13, color: "#dc2626" }}>{ocrError}</p>}
+
+        {ocrText && (
+          <div style={{ marginTop: 14 }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--navy)", marginBottom: 6 }}>
+              Extracted text — review and edit, then click Fill Sections:
+            </label>
+            <div className="input-wrap" style={{ alignItems: "stretch" }}>
+              <textarea
+                className="input"
+                style={{ minHeight: 140, resize: "vertical" }}
+                value={ocrText}
+                onChange={(e) => setOcrText(e.target.value)}
+              />
+            </div>
+            <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={fillSectionsFromOcr}
+                className="primary-btn"
+              >
+                Fill Sections from Extracted Text
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 2) Validate */}
+      {/* Structured Sections */}
       <div className="card" style={{ width: "100%" }}>
-        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>
-          2. Validate & Structure Your Statement
-        </div>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Structure Your Statement</div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 14 }}>
-          Review your uploaded document and fill in the fields below to validate and structure your personal statement.
-          All sections are required.
+          Complete all four sections. Your content will be combined and evaluated by AI.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Section
-            k="valuesGoals"
-            title="Values & Future Goals"
-            example='“My long-term vision is to become a leader in cybersecurity, protecting digital infrastructure across Bahrain.”'
-            placeholder="Describe your long-term goals, values, and ultimate vision. What drives you? What do you hope to achieve in your career and life?"
-            value={data.valuesGoals}
-          />
-
-          <Section
-            k="whyMajor"
-            title="Why This Major?"
-            example="Explain how your chosen major supports your ambitions."
-            placeholder="What drew you to this field of study? How does it align with your goals and aspirations?"
-            value={data.whyMajor}
-          />
-
-          <Section
-            k="interests"
-            title="Your Personality & Interests"
-            example="Show who you are: interests, hobbies, passions that shaped your academic path."
-            placeholder="What makes you unique? What are you passionate about outside academics? How have your interests shaped your journey?"
-            value={data.interests}
-          />
-
-          <Section
-            k="summary"
-            title="Closing Summary"
-            example="Summarize why you stand out and what you can offer the AUBH community."
-            placeholder="Why should AUBH invest in your future? What will you contribute to the university and the broader community?"
-            value={data.summary}
-          />
+          {SECTIONS.map((s) => (
+            <Section key={s.k} {...s} value={data[s.k]} />
+          ))}
         </div>
 
-        <div
-          style={{
-            marginTop: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 800, color: isOverLimit ? "#b91c1c" : "var(--muted)" }}>
             Word count: {wordCount} / 1000 {isOverLimit ? "(exceeds limit)" : ""}
           </div>
-
-          <button
-            type="button"
-            className="ghost-btn"
-            onClick={() => setIsPreviewOpen(true)}
-            style={{ borderColor: "rgba(37, 99, 235, 0.35)" }}
-          >
+          <button type="button" className="ghost-btn" onClick={() => setIsPreviewOpen(true)} style={{ borderColor: "rgba(37, 99, 235, 0.35)" }}>
             Preview Statement
           </button>
         </div>
       </div>
 
       {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <button type="button" className="ghost-btn" onClick={onBack}>
-          ← Back
-        </button>
-
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <button type="button" className="ghost-btn" onClick={onBack}>← Back</button>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="ghost-btn" onClick={handleSaveDraft}>
-            Save Draft
-          </button>
-
-          <button
-            type="button"
-            className="primary-btn primary-btn-lg"
-            onClick={onNext}
-            disabled={isOverLimit}
-            style={isOverLimit ? { opacity: 0.65, cursor: "not-allowed" } : undefined}
-          >
+          <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
+          <button type="button" className="primary-btn primary-btn-lg" onClick={onNext} disabled={isOverLimit} style={isOverLimit ? { opacity: 0.65, cursor: "not-allowed" } : undefined}>
             Next →
           </button>
         </div>
       </div>
 
       {isPreviewOpen && <PreviewModal />}
-
-      <style>{`
-        @media (max-width: 900px) {
-          .card { width: 100% !important; }
-        }
-      `}</style>
     </div>
   );
 }

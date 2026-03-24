@@ -84,6 +84,7 @@ export default function ApplicantPortalPage() {
       skills: [],
       awards: [],
       community: [],
+      leadership: [],
     },
     portfolio: { links: [], files: [] },
     documents: {

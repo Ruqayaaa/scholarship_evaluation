@@ -34,6 +34,15 @@ export type CommunityItem = {
   description: string;
 };
 
+export type LeadershipItem = {
+  id: string;
+  role: string;
+  organization: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+};
+
 export type ApplicationData = {
   personalInfo: {
     fullName: string;
@@ -60,6 +69,7 @@ export type ApplicationData = {
     skills: string[];
     awards: AwardItem[];
     community: CommunityItem[];
+    leadership: LeadershipItem[];
   };
   portfolio: {
     links: string[];
