@@ -38,7 +38,7 @@ export function Step6Review({ data, onBack, onSubmitted }: Step6Props) {
       };
       await scorePersonalStatement(psData, data.personalInfo.fullName || undefined);
 
-      // Submit resume for scoring + save to database (if there's resume data)
+      // Submit resume for scoring + save to database
       const resumeParts: string[] = [];
       if (data.resume.education.length) {
         resumeParts.push(
@@ -59,7 +59,23 @@ export function Step6Review({ data, onBack, onSubmitted }: Step6Props) {
       if (data.resume.skills.length) {
         resumeParts.push("Skills: " + data.resume.skills.join(", "));
       }
-      if (resumeParts.length > 0) {
+      if (data.resume.awards.length) {
+        resumeParts.push(
+          "Awards:\n" +
+            data.resume.awards.map((a) => `${a.name || ""} (${a.year || ""})`).join("\n")
+        );
+      }
+      if (data.resume.community.length) {
+        resumeParts.push(
+          "Community/Volunteer:\n" +
+            data.resume.community
+              .map((c) => `${c.role || ""} at ${c.organization || ""} (${c.startDate || ""}–${c.endDate || ""})`)
+              .join("\n")
+        );
+      }
+      const hasResumeData =
+        resumeParts.length > 0 || data.resume.uploadedFile?.length > 0;
+      if (hasResumeData) {
         await scoreResume(resumeParts.join("\n\n"));
       }
 
