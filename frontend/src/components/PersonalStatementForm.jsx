@@ -28,6 +28,7 @@ export default function PersonalStatementForm() {
   const [academicCommitment, setAcademicCommitment] = useState("");
   const [clarityOfVision, setClarityOfVision] = useState("");
   const [closing, setClosing] = useState("");
+  const [ocrText, setOcrText] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -42,7 +43,11 @@ export default function PersonalStatementForm() {
   const isOverLimit = wordCount > 1000;
 
   function handleOcrExtract(text) {
-    const [s1, s2, s3, s4] = distributeText(text);
+    setOcrText(text);
+  }
+
+  function fillSectionsFromOcr() {
+    const [s1, s2, s3, s4] = distributeText(ocrText);
     setInterestsAndValues(s1);
     setAcademicCommitment(s2);
     setClarityOfVision(s3);
@@ -189,27 +194,61 @@ export default function PersonalStatementForm() {
             {/* OCR Upload */}
             <div
               style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "16px",
                 padding: "16px 20px",
                 backgroundColor: "#f8faff",
                 border: "1.5px dashed #93a8e8",
                 borderRadius: "12px",
               }}
             >
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 4px", fontWeight: 600, color: "#1A3175", fontSize: "14px" }}>
-                  Have an existing personal statement?
-                </p>
-                <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#4b5563" }}>
-                  Upload an image or PDF — text will be extracted and distributed across the sections below for you to edit.
-                </p>
-                <OcrUploader
-                  onExtract={handleOcrExtract}
-                  buttonLabel="Upload & Extract Text"
-                />
-              </div>
+              <p style={{ margin: "0 0 4px", fontWeight: 600, color: "#1A3175", fontSize: "14px" }}>
+                Have an existing personal statement?
+              </p>
+              <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#4b5563" }}>
+                Upload an image or PDF to extract your text, review it, then click <strong>Fill Sections</strong> to distribute it into the fields below.
+              </p>
+              <OcrUploader onExtract={handleOcrExtract} buttonLabel="Upload & Extract Text" />
+
+              {ocrText && (
+                <div style={{ marginTop: "14px" }}>
+                  <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                    Extracted text — review and edit before filling:
+                  </label>
+                  <textarea
+                    value={ocrText}
+                    onChange={(e) => setOcrText(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minHeight: "140px",
+                      padding: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "10px",
+                      fontSize: "13px",
+                      resize: "vertical",
+                      boxSizing: "border-box",
+                      fontFamily: "Arial, sans-serif",
+                      backgroundColor: "#fff",
+                    }}
+                  />
+                  <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={fillSectionsFromOcr}
+                      style={{
+                        padding: "10px 20px",
+                        backgroundColor: "#1A3175",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "10px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Fill Sections from Extracted Text
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

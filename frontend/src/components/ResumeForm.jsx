@@ -4,6 +4,37 @@ import OcrUploader from "./OcrUploader";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+// Parse raw OCR/pasted text into structured resume fields.
+// Splits on common section headers and maps to the closest rubric category.
+function parseResumeText(raw) {
+  const HEADERS = [
+    { regex: /^(EDUCATION|ACADEMIC|ACADEMICS)\b/i,                   key: "education" },
+    { regex: /^(EXPERIENCE|WORK|RESEARCH|INTERNSHIP|EMPLOYMENT)\b/i, key: "experience" },
+    { regex: /^(SKILLS?|CERTIFICATIONS?|TECHNOLOGIES)\b/i,           key: "skills" },
+    { regex: /^(AWARDS?|RECOGNITION|HONORS?|ACHIEVEMENTS?)\b/i,      key: "awards" },
+    { regex: /^(COMMUNITY|VOLUNTEER|SERVICE|VOLUNTEERING)\b/i,       key: "community" },
+    { regex: /^(LEADERSHIP|EXTRACURRICULAR|ACTIVITIES|CLUBS?)\b/i,   key: "leadership" },
+  ];
+
+  const lines = raw.split("\n");
+  const sections = {};
+  let currentKey = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const match = HEADERS.find((h) => h.regex.test(trimmed));
+    if (match) {
+      currentKey = match.key;
+      if (!sections[currentKey]) sections[currentKey] = [];
+    } else if (currentKey) {
+      sections[currentKey].push(trimmed);
+    }
+  }
+
+  return sections;
+}
+
 const emptyEdu = () => ({ id: uid(), institution: "", degree: "", startYear: "", endYear: "", gpa: "" });
 const emptyExp = () => ({ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: "" });
 const emptyAward = () => ({ id: uid(), name: "", year: "", description: "" });
@@ -134,7 +165,38 @@ export default function ResumeForm() {
 
   function handleOcrExtract(text) {
     setOcrText(text);
-    setUseOcrText(true);
+    setUseOcrText(false);
+  }
+
+  function fillFieldsFromOcr() {
+    const parsed = parseResumeText(ocrText);
+
+    if (parsed.education?.length) {
+      const text = parsed.education.join("\n");
+      setEducation([{ ...emptyEdu(), institution: text }]);
+    }
+    if (parsed.experience?.length) {
+      const text = parsed.experience.join("\n");
+      setExperience([{ ...emptyExp(), jobTitle: "See details", responsibilities: text }]);
+    }
+    if (parsed.skills?.length) {
+      const raw = parsed.skills.join(", ");
+      const tags = raw.split(/[,;•\n]+/).map((s) => s.trim()).filter(Boolean);
+      setSkills(tags);
+    }
+    if (parsed.awards?.length) {
+      const entries = parsed.awards.map((line) => ({ ...emptyAward(), name: line }));
+      setAwards(entries.length ? entries : [emptyAward()]);
+    }
+    if (parsed.community?.length) {
+      const text = parsed.community.join("\n");
+      setCommunity([{ ...emptyComm(), organization: "See details", description: text }]);
+    }
+    if (parsed.leadership?.length) {
+      const text = parsed.leadership.join("\n");
+      setLeadership([{ ...emptyLeadership(), role: "See details", description: text }]);
+    }
+    setUseOcrText(false);
   }
 
   async function submit(e) {
@@ -192,32 +254,46 @@ export default function ResumeForm() {
 
           {/* OCR text review area */}
           {ocrText && (
-            <div style={{ ...section, border: useOcrText ? "2px solid #1A3175" : "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "15px", color: "#111827" }}>
-                    Extracted Resume Text
-                  </div>
-                  <div style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>
-                    Review and edit the text below. Toggle whether to submit this text or your manually entered fields.
-                  </div>
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#1A3175", whiteSpace: "nowrap" }}>
-                  <input
-                    type="checkbox"
-                    checked={useOcrText}
-                    onChange={(e) => setUseOcrText(e.target.checked)}
-                    style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                  />
-                  Use this text for scoring
-                </label>
+            <div style={{ ...section, border: "1px solid #93a8e8", backgroundColor: "#f8faff" }}>
+              <div style={{ fontWeight: 700, fontSize: "15px", color: "#111827", marginBottom: "4px" }}>
+                Extracted Resume Text
+              </div>
+              <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "12px" }}>
+                Review and edit the text below, then choose how to use it.
               </div>
               <textarea
-                style={{ ...textareaStyle, minHeight: "220px", backgroundColor: useOcrText ? "#f8faff" : "#fafafa" }}
+                style={{ ...textareaStyle, minHeight: "220px", backgroundColor: "#fff" }}
                 value={ocrText}
                 onChange={(e) => setOcrText(e.target.value)}
                 placeholder="Extracted text will appear here…"
               />
+              <div style={{ marginTop: "12px", display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={fillFieldsFromOcr}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#1A3175",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Fill Fields from Extracted Text
+                </button>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#1A3175", padding: "10px 16px", border: "1.5px solid #1A3175", borderRadius: "10px", backgroundColor: useOcrText ? "#e8edfa" : "white" }}>
+                  <input
+                    type="checkbox"
+                    checked={useOcrText}
+                    onChange={(e) => setUseOcrText(e.target.checked)}
+                    style={{ width: "15px", height: "15px", cursor: "pointer" }}
+                  />
+                  Submit raw text instead of fields
+                </label>
+              </div>
             </div>
           )}
 
