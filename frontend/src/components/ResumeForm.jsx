@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { scoreResume } from "../api/personalStatementApi";
+import OcrUploader from "./OcrUploader";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -7,6 +8,7 @@ const emptyEdu = () => ({ id: uid(), institution: "", degree: "", startYear: "",
 const emptyExp = () => ({ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: "" });
 const emptyAward = () => ({ id: uid(), name: "", year: "", description: "" });
 const emptyComm = () => ({ id: uid(), organization: "", role: "", startDate: "", endDate: "", description: "" });
+const emptyLeadership = () => ({ id: uid(), role: "", organization: "", startDate: "", endDate: "", description: "" });
 
 function buildResumeText(data) {
   const lines = [];
@@ -23,10 +25,14 @@ function buildResumeText(data) {
   }
 
   if (data.experience.some((e) => e.jobTitle)) {
-    lines.push("EXPERIENCE");
+    lines.push("RESEARCH & WORK EXPERIENCE");
     data.experience.forEach((e) => {
       if (!e.jobTitle) return;
-      lines.push(`${e.jobTitle}${e.organization ? " — " + e.organization : ""}${e.startDate || e.endDate ? " (" + (e.startDate || "") + " – " + (e.endDate || "Present") + ")" : ""}`);
+      lines.push(
+        `${e.jobTitle}${e.organization ? " — " + e.organization : ""}${
+          e.startDate || e.endDate ? " (" + (e.startDate || "") + " – " + (e.endDate || "Present") + ")" : ""
+        }`
+      );
       if (e.responsibilities) {
         e.responsibilities.split("\n").forEach((r) => {
           const t = r.trim();
@@ -38,39 +44,60 @@ function buildResumeText(data) {
   }
 
   if (data.skills.length > 0) {
-    lines.push("SKILLS");
+    lines.push("SKILLS & CERTIFICATIONS");
     lines.push(data.skills.join(", "));
     lines.push("");
   }
 
   if (data.awards.some((a) => a.name)) {
-    lines.push("AWARDS & ACHIEVEMENTS");
+    lines.push("AWARDS & RECOGNITION");
     data.awards.forEach((a) => {
       if (!a.name) return;
-      lines.push(`${a.name}${a.year ? " (" + a.year + ")" : ""}${a.description ? " — " + a.description : ""}`);
+      lines.push(
+        `${a.name}${a.year ? " (" + a.year + ")" : ""}${a.description ? " — " + a.description : ""}`
+      );
     });
     lines.push("");
   }
 
   if (data.community.some((c) => c.organization)) {
-    lines.push("COMMUNITY / VOLUNTEER WORK");
+    lines.push("COMMUNITY SERVICE");
     data.community.forEach((c) => {
       if (!c.organization) return;
-      lines.push(`${c.organization}${c.role ? " — " + c.role : ""}${c.startDate || c.endDate ? " (" + (c.startDate || "") + " – " + (c.endDate || "Present") + ")" : ""}`);
+      lines.push(
+        `${c.organization}${c.role ? " — " + c.role : ""}${
+          c.startDate || c.endDate ? " (" + (c.startDate || "") + " – " + (c.endDate || "Present") + ")" : ""
+        }`
+      );
       if (c.description) lines.push(c.description);
     });
+    lines.push("");
+  }
+
+  if (data.leadership.some((l) => l.role)) {
+    lines.push("LEADERSHIP & EXTRACURRICULARS");
+    data.leadership.forEach((l) => {
+      if (!l.role) return;
+      lines.push(
+        `${l.role}${l.organization ? " — " + l.organization : ""}${
+          l.startDate || l.endDate ? " (" + (l.startDate || "") + " – " + (l.endDate || "Present") + ")" : ""
+        }`
+      );
+      if (l.description) lines.push(l.description);
+    });
+    lines.push("");
   }
 
   return lines.join("\n").trim();
 }
 
 const RESUME_CRITERIA = [
-  { key: "academic_achievement",           label: "Academic Achievement" },
-  { key: "leadership_and_extracurriculars",label: "Leadership & Extracurriculars" },
   { key: "community_service",              label: "Community Service" },
-  { key: "research_and_work_experience",   label: "Research & Work Experience" },
-  { key: "skills_and_certifications",      label: "Skills & Certifications" },
+  { key: "academic_achievement",           label: "Academic Achievement" },
   { key: "awards_and_recognition",         label: "Awards & Recognition" },
+  { key: "skills_and_certifications",      label: "Skills & Certifications" },
+  { key: "research_and_work_experience",   label: "Research & Work Experience" },
+  { key: "leadership_and_extracurriculars",label: "Leadership & Extracurriculars" },
 ];
 
 const card = { backgroundColor: "#fff", borderRadius: "24px", boxShadow: "0 1px 8px rgba(0,0,0,0.08)", padding: "32px" };
@@ -79,7 +106,6 @@ const inputStyle = { width: "100%", padding: "10px 14px", border: "1px solid #d1
 const textareaStyle = { ...inputStyle, minHeight: "100px", resize: "vertical" };
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" };
 
-
 export default function ResumeForm() {
   const [education, setEducation] = useState([emptyEdu()]);
   const [experience, setExperience] = useState([emptyExp()]);
@@ -87,12 +113,16 @@ export default function ResumeForm() {
   const [skillInput, setSkillInput] = useState("");
   const [awards, setAwards] = useState([emptyAward()]);
   const [community, setCommunity] = useState([emptyComm()]);
+  const [leadership, setLeadership] = useState([emptyLeadership()]);
+
+  // OCR / raw text mode
+  const [ocrText, setOcrText] = useState("");
+  const [useOcrText, setUseOcrText] = useState(false);
 
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── helpers ──
   const updateItem = (setter, id, field, value) =>
     setter((prev) => prev.map((x) => (x.id === id ? { ...x, [field]: value } : x)));
 
@@ -102,13 +132,20 @@ export default function ResumeForm() {
     setSkillInput("");
   };
 
+  function handleOcrExtract(text) {
+    setOcrText(text);
+    setUseOcrText(true);
+  }
+
   async function submit(e) {
     e.preventDefault();
     setError("");
     setResult(null);
     setIsSubmitting(true);
 
-    const resumeText = buildResumeText({ education, experience, skills, awards, community });
+    const resumeText = useOcrText
+      ? ocrText
+      : buildResumeText({ education, experience, skills, awards, community, leadership });
 
     try {
       const res = await scoreResume(resumeText);
@@ -126,18 +163,84 @@ export default function ResumeForm() {
         <h1 style={{ color: "#111827", marginBottom: "8px" }}>Resume Evaluation</h1>
         <p style={{ color: "#4b5563", margin: 0 }}>
           Fill in your resume details below and submit for AI-powered scholarship scoring.
+          Your resume is scored on: Community Service, Academic Achievement, Awards & Recognition,
+          Skills & Certifications, Research & Work Experience, and Leadership & Extracurriculars.
         </p>
       </div>
 
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
         <div style={card}>
 
-          {/* Education */}
+          {/* OCR Upload Panel */}
+          <div
+            style={{
+              marginBottom: "24px",
+              padding: "16px 20px",
+              backgroundColor: "#f8faff",
+              border: "1.5px dashed #93a8e8",
+              borderRadius: "12px",
+            }}
+          >
+            <p style={{ margin: "0 0 4px", fontWeight: 600, color: "#1A3175", fontSize: "14px" }}>
+              Have an existing resume?
+            </p>
+            <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#4b5563" }}>
+              Upload an image or PDF to extract the text automatically, then review and edit it before submitting.
+            </p>
+            <OcrUploader onExtract={handleOcrExtract} buttonLabel="Upload Resume (OCR)" />
+          </div>
+
+          {/* OCR text review area */}
+          {ocrText && (
+            <div style={{ ...section, border: useOcrText ? "2px solid #1A3175" : "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "15px", color: "#111827" }}>
+                    Extracted Resume Text
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>
+                    Review and edit the text below. Toggle whether to submit this text or your manually entered fields.
+                  </div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#1A3175", whiteSpace: "nowrap" }}>
+                  <input
+                    type="checkbox"
+                    checked={useOcrText}
+                    onChange={(e) => setUseOcrText(e.target.checked)}
+                    style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                  />
+                  Use this text for scoring
+                </label>
+              </div>
+              <textarea
+                style={{ ...textareaStyle, minHeight: "220px", backgroundColor: useOcrText ? "#f8faff" : "#fafafa" }}
+                value={ocrText}
+                onChange={(e) => setOcrText(e.target.value)}
+                placeholder="Extracted text will appear here…"
+              />
+            </div>
+          )}
+
+          {/* Divider when both modes are visible */}
+          {ocrText && (
+            <div style={{ margin: "8px 0 20px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ flex: 1, height: "1px", backgroundColor: "#e5e7eb" }} />
+              <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: 600 }}>
+                {useOcrText ? "Manual fields below are not used for scoring" : "Manual fields below will be used for scoring"}
+              </span>
+              <div style={{ flex: 1, height: "1px", backgroundColor: "#e5e7eb" }} />
+            </div>
+          )}
+
+          {/* Academic Achievement — Education */}
           <div style={section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div style={{ fontWeight: 700, fontSize: "16px" }}>Education</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>Academic Achievement</div>
               <button type="button" onClick={() => setEducation((p) => [...p, emptyEdu()])} style={{ background: "none", border: "1px solid #d1d5db", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px" }}>+ Add</button>
             </div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 14px" }}>
+              Your education history, GPA, honours, and academic awards.
+            </p>
             {education.map((edu, idx) => (
               <div key={edu.id} style={{ border: "1px solid #f3f4f6", borderRadius: "12px", padding: "16px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -150,7 +253,7 @@ export default function ResumeForm() {
                     <input style={inputStyle} placeholder="University name" value={edu.institution} onChange={(e) => updateItem(setEducation, edu.id, "institution", e.target.value)} />
                   </div>
                   <div>
-                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Degree</label>
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Degree / Program</label>
                     <input style={inputStyle} placeholder="BSc Computer Science" value={edu.degree} onChange={(e) => updateItem(setEducation, edu.id, "degree", e.target.value)} />
                   </div>
                   <div>
@@ -170,12 +273,15 @@ export default function ResumeForm() {
             ))}
           </div>
 
-          {/* Experience */}
+          {/* Research & Work Experience */}
           <div style={section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div style={{ fontWeight: 700, fontSize: "16px" }}>Work & Internship Experience</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>Research & Work Experience</div>
               <button type="button" onClick={() => setExperience((p) => [...p, emptyExp()])} style={{ background: "none", border: "1px solid #d1d5db", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px" }}>+ Add</button>
             </div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 14px" }}>
+              Internships, research roles, part-time jobs, and professional experience.
+            </p>
             {experience.map((exp, idx) => (
               <div key={exp.id} style={{ border: "1px solid #f3f4f6", borderRadius: "12px", padding: "16px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -184,12 +290,12 @@ export default function ResumeForm() {
                 </div>
                 <div style={grid2}>
                   <div>
-                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Job Title</label>
-                    <input style={inputStyle} placeholder="Software Intern" value={exp.jobTitle} onChange={(e) => updateItem(setExperience, exp.id, "jobTitle", e.target.value)} />
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Job / Research Title</label>
+                    <input style={inputStyle} placeholder="Research Assistant" value={exp.jobTitle} onChange={(e) => updateItem(setExperience, exp.id, "jobTitle", e.target.value)} />
                   </div>
                   <div>
-                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Organization</label>
-                    <input style={inputStyle} placeholder="Company / Lab" value={exp.organization} onChange={(e) => updateItem(setExperience, exp.id, "organization", e.target.value)} />
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Organization / Lab</label>
+                    <input style={inputStyle} placeholder="MIT Media Lab" value={exp.organization} onChange={(e) => updateItem(setExperience, exp.id, "organization", e.target.value)} />
                   </div>
                   <div>
                     <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Start Date</label>
@@ -201,17 +307,19 @@ export default function ResumeForm() {
                   </div>
                 </div>
                 <div style={{ marginTop: "12px" }}>
-                  <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Key Responsibilities</label>
-                  <textarea style={textareaStyle} placeholder={"One per line:\n• Developed data pipeline\n• Improved efficiency by 30%"} value={exp.responsibilities} onChange={(e) => updateItem(setExperience, exp.id, "responsibilities", e.target.value)} />
+                  <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Key Responsibilities / Contributions</label>
+                  <textarea style={textareaStyle} placeholder={"One per line:\n• Developed ML model for sentiment analysis\n• Published findings in campus journal"} value={exp.responsibilities} onChange={(e) => updateItem(setExperience, exp.id, "responsibilities", e.target.value)} />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Skills */}
+          {/* Skills & Certifications */}
           <div style={section}>
-            <div style={{ fontWeight: 700, fontSize: "16px", marginBottom: "8px" }}>Skills & Technologies</div>
-            <p style={{ color: "#4b5563", margin: "0 0 12px", fontSize: "13px" }}>Type a skill and press Enter or click Add</p>
+            <div style={{ fontWeight: 700, fontSize: "16px", marginBottom: "4px" }}>Skills & Certifications</div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 12px" }}>
+              Technical skills, languages, software, and certifications. Type and press Enter to add.
+            </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
               {skills.map((s) => (
                 <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#1A3175", color: "white", padding: "6px 10px", borderRadius: "20px", fontSize: "13px", fontWeight: 600 }}>
@@ -221,17 +329,20 @@ export default function ResumeForm() {
               ))}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <input style={{ ...inputStyle, flex: 1 }} placeholder="Python, Leadership, Research..." value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
+              <input style={{ ...inputStyle, flex: 1 }} placeholder="Python, AWS Certified, Arabic, Leadership…" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
               <button type="button" onClick={addSkill} style={{ padding: "10px 16px", background: "#1A3175", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Add</button>
             </div>
           </div>
 
-          {/* Awards */}
+          {/* Awards & Recognition */}
           <div style={section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div style={{ fontWeight: 700, fontSize: "16px" }}>Awards & Achievements</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>Awards & Recognition</div>
               <button type="button" onClick={() => setAwards((p) => [...p, emptyAward()])} style={{ background: "none", border: "1px solid #d1d5db", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px" }}>+ Add</button>
             </div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 14px" }}>
+              Scholarships, competition prizes, honours, and other recognitions.
+            </p>
             {awards.map((a, idx) => (
               <div key={a.id} style={{ border: "1px solid #f3f4f6", borderRadius: "12px", padding: "16px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -240,8 +351,8 @@ export default function ResumeForm() {
                 </div>
                 <div style={grid2}>
                   <div>
-                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Award Name</label>
-                    <input style={inputStyle} placeholder="Dean's List" value={a.name} onChange={(e) => updateItem(setAwards, a.id, "name", e.target.value)} />
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Award / Prize Name</label>
+                    <input style={inputStyle} placeholder="Dean's List, National Science Olympiad…" value={a.name} onChange={(e) => updateItem(setAwards, a.id, "name", e.target.value)} />
                   </div>
                   <div>
                     <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Year</label>
@@ -250,18 +361,21 @@ export default function ResumeForm() {
                 </div>
                 <div style={{ marginTop: "12px" }}>
                   <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Description</label>
-                  <input style={inputStyle} placeholder="Brief description of the award" value={a.description} onChange={(e) => updateItem(setAwards, a.id, "description", e.target.value)} />
+                  <input style={inputStyle} placeholder="Brief description of the award and its significance" value={a.description} onChange={(e) => updateItem(setAwards, a.id, "description", e.target.value)} />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Community */}
+          {/* Community Service */}
           <div style={section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div style={{ fontWeight: 700, fontSize: "16px" }}>Community / Volunteer Work</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>Community Service</div>
               <button type="button" onClick={() => setCommunity((p) => [...p, emptyComm()])} style={{ background: "none", border: "1px solid #d1d5db", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px" }}>+ Add</button>
             </div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 14px" }}>
+              Volunteer work, social impact initiatives, and community contributions.
+            </p>
             {community.map((c, idx) => (
               <div key={c.id} style={{ border: "1px solid #f3f4f6", borderRadius: "12px", padding: "16px", marginBottom: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -271,7 +385,7 @@ export default function ResumeForm() {
                 <div style={grid2}>
                   <div>
                     <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Organization</label>
-                    <input style={inputStyle} placeholder="Red Crescent" value={c.organization} onChange={(e) => updateItem(setCommunity, c.id, "organization", e.target.value)} />
+                    <input style={inputStyle} placeholder="Red Crescent, local food bank…" value={c.organization} onChange={(e) => updateItem(setCommunity, c.id, "organization", e.target.value)} />
                   </div>
                   <div>
                     <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Role</label>
@@ -287,8 +401,49 @@ export default function ResumeForm() {
                   </div>
                 </div>
                 <div style={{ marginTop: "12px" }}>
-                  <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Description</label>
-                  <textarea style={textareaStyle} placeholder="Describe your contribution and impact" value={c.description} onChange={(e) => updateItem(setCommunity, c.id, "description", e.target.value)} />
+                  <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Description & Impact</label>
+                  <textarea style={textareaStyle} placeholder="Describe your contribution, number of people helped, and overall impact" value={c.description} onChange={(e) => updateItem(setCommunity, c.id, "description", e.target.value)} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Leadership & Extracurriculars */}
+          <div style={section}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>Leadership & Extracurriculars</div>
+              <button type="button" onClick={() => setLeadership((p) => [...p, emptyLeadership()])} style={{ background: "none", border: "1px solid #d1d5db", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px" }}>+ Add</button>
+            </div>
+            <p style={{ color: "#4b5563", fontSize: "13px", margin: "0 0 14px" }}>
+              Club leadership, student government, sports, cultural activities, and other extracurriculars.
+            </p>
+            {leadership.map((l, idx) => (
+              <div key={l.id} style={{ border: "1px solid #f3f4f6", borderRadius: "12px", padding: "16px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#6b7280" }}>Entry {idx + 1}</span>
+                  {leadership.length > 1 && <button type="button" onClick={() => setLeadership((p) => p.filter((x) => x.id !== l.id))} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "13px" }}>Remove</button>}
+                </div>
+                <div style={grid2}>
+                  <div>
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Role / Position</label>
+                    <input style={inputStyle} placeholder="President, Captain, Founder…" value={l.role} onChange={(e) => updateItem(setLeadership, l.id, "role", e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Club / Organization</label>
+                    <input style={inputStyle} placeholder="Debate Club, Basketball Team…" value={l.organization} onChange={(e) => updateItem(setLeadership, l.id, "organization", e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Start Date</label>
+                    <input style={inputStyle} type="month" value={l.startDate} onChange={(e) => updateItem(setLeadership, l.id, "startDate", e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>End Date</label>
+                    <input style={inputStyle} type="month" value={l.endDate} onChange={(e) => updateItem(setLeadership, l.id, "endDate", e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ marginTop: "12px" }}>
+                  <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Description & Achievements</label>
+                  <textarea style={textareaStyle} placeholder="Describe your responsibilities, accomplishments, and leadership impact" value={l.description} onChange={(e) => updateItem(setLeadership, l.id, "description", e.target.value)} />
                 </div>
               </div>
             ))}
@@ -340,7 +495,7 @@ export default function ResumeForm() {
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button type="submit" disabled={isSubmitting} style={{ backgroundColor: isSubmitting ? "#94a3b8" : "#1A3175", color: "white", border: "none", borderRadius: "10px", padding: "12px 24px", fontSize: "14px", fontWeight: 600, cursor: isSubmitting ? "not-allowed" : "pointer" }}>
-            {isSubmitting ? "Evaluating..." : "Evaluate Resume"}
+            {isSubmitting ? "Evaluating…" : "Evaluate Resume"}
           </button>
         </div>
       </form>

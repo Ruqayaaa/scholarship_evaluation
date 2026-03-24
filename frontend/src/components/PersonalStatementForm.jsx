@@ -1,24 +1,53 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { scorePersonalStatement } from "../api/personalStatementApi";
+import OcrUploader from "./OcrUploader";
+
+// Distribute extracted OCR text across the 4 sections by splitting on paragraphs
+function distributeText(raw) {
+  const paragraphs = raw
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\n/g, " ").trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 0) return ["", "", "", ""];
+  if (paragraphs.length === 1) return [paragraphs[0], "", "", ""];
+
+  const quarter = Math.ceil(paragraphs.length / 4);
+  const chunks = [
+    paragraphs.slice(0, quarter),
+    paragraphs.slice(quarter, quarter * 2),
+    paragraphs.slice(quarter * 2, quarter * 3),
+    paragraphs.slice(quarter * 3),
+  ];
+  return chunks.map((c) => c.join("\n\n"));
+}
 
 export default function PersonalStatementForm() {
-  const [values, setValues] = useState("");
-  const [major, setMajor] = useState("");
-  const [personality, setPersonality] = useState("");
+  const [interestsAndValues, setInterestsAndValues] = useState("");
+  const [academicCommitment, setAcademicCommitment] = useState("");
+  const [clarityOfVision, setClarityOfVision] = useState("");
   const [closing, setClosing] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const getTotalWords = () => {
-    const allText = [values, major, personality, closing].join(" ");
-    return allText.split(/\s+/).filter(Boolean).length;
-  };
+  const sections = [interestsAndValues, academicCommitment, clarityOfVision, closing];
+
+  const getTotalWords = () =>
+    sections.join(" ").split(/\s+/).filter(Boolean).length;
 
   const wordCount = getTotalWords();
   const isOverLimit = wordCount > 1000;
+
+  function handleOcrExtract(text) {
+    const [s1, s2, s3, s4] = distributeText(text);
+    setInterestsAndValues(s1);
+    setAcademicCommitment(s2);
+    setClarityOfVision(s3);
+    setClosing(s4);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -27,12 +56,10 @@ export default function PersonalStatementForm() {
     setIsSubmitting(true);
 
     const data = {
-      academic_goals: values,
-      career_goals: major,
-      leadership_experience: personality,
-      personal_statement: [values, major, personality, closing]
-        .filter(Boolean)
-        .join("\n\n"),
+      academic_goals: academicCommitment,
+      career_goals: clarityOfVision,
+      leadership_experience: interestsAndValues,
+      personal_statement: sections.filter(Boolean).join("\n\n"),
     };
 
     try {
@@ -105,103 +132,108 @@ export default function PersonalStatementForm() {
     cursor: "pointer",
   };
 
+  const formSections = [
+    {
+      key: "interests_and_values",
+      label: "Interests & Values",
+      hint: "Describe your personal interests, passions, and core values that drive you.",
+      placeholder: "What topics, activities, or causes are you passionate about? What values guide your decisions and actions?",
+      value: interestsAndValues,
+      setter: setInterestsAndValues,
+    },
+    {
+      key: "academic_commitment",
+      label: "Academic Commitment",
+      hint: "Describe your academic dedication, achievements, and scholarly pursuits.",
+      placeholder: "Highlight your academic achievements, study habits, intellectual curiosity, and commitment to learning in your field.",
+      value: academicCommitment,
+      setter: setAcademicCommitment,
+    },
+    {
+      key: "clarity_of_vision",
+      label: "Clarity of Vision",
+      hint: "Explain your clear vision for your future and how this program fits.",
+      placeholder: "Where do you see yourself in 5–10 years? How does this program prepare you for that path? What specific goals are you working toward?",
+      value: clarityOfVision,
+      setter: setClarityOfVision,
+    },
+    {
+      key: "closing",
+      label: "Closing Summary",
+      hint: "End with a strong, well-organized summary of why you are an ideal candidate.",
+      placeholder: "Summarize what makes you stand out, what you will contribute, and why you are confident in your application.",
+      value: closing,
+      setter: setClosing,
+    },
+  ];
+
   return (
     <div style={{ maxWidth: "950px", margin: "0 auto", padding: "24px", fontFamily: "Arial, sans-serif" }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ color: "#111827", marginBottom: "8px" }}>Personal Statement</h1>
         <p style={{ color: "#4b5563", margin: 0 }}>
-          Fill in the sections below to structure your personal statement, then submit it for scoring.
+          Fill in each section below, or upload a document to extract your text automatically.
+          Your statement is scored on: Interests & Values, Academic Commitment, Clarity of Vision,
+          Organization, and Language Quality.
         </p>
       </div>
 
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
         <div style={cardStyle}>
-          <div style={{ marginBottom: "28px" }}>
+          <div style={{ marginBottom: "24px" }}>
             <h2 style={{ color: "#111827", marginBottom: "8px" }}>Structure Your Statement</h2>
-            <p style={{ color: "#4b5563", margin: 0 }}>
-              Complete all sections below. Your content will be combined and sent for evaluation.
+            <p style={{ color: "#4b5563", margin: "0 0 16px" }}>
+              Complete all sections. Your content will be combined and evaluated by AI.
             </p>
+
+            {/* OCR Upload */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "16px",
+                padding: "16px 20px",
+                backgroundColor: "#f8faff",
+                border: "1.5px dashed #93a8e8",
+                borderRadius: "12px",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: "0 0 4px", fontWeight: 600, color: "#1A3175", fontSize: "14px" }}>
+                  Have an existing personal statement?
+                </p>
+                <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#4b5563" }}>
+                  Upload an image or PDF — text will be extracted and distributed across the sections below for you to edit.
+                </p>
+                <OcrUploader
+                  onExtract={handleOcrExtract}
+                  buttonLabel="Upload & Extract Text"
+                />
+              </div>
+            </div>
           </div>
 
-          <div style={sectionStyle}>
-            <div style={labelRowStyle}>
-              {values ? (
-                <CheckCircle2 size={20} color="#16a34a" />
-              ) : (
-                <Circle size={20} color="#9ca3af" />
-              )}
-              <span>Values & Future Goals</span>
+          {formSections.map(({ key, label, hint, placeholder, value, setter }) => (
+            <div key={key} style={sectionStyle}>
+              <div style={labelRowStyle}>
+                {value ? (
+                  <CheckCircle2 size={20} color="#16a34a" />
+                ) : (
+                  <Circle size={20} color="#9ca3af" />
+                )}
+                <span>{label}</span>
+              </div>
+              <p style={{ color: "#4b5563", marginTop: 0, marginBottom: "12px", fontSize: "14px" }}>
+                {hint}
+              </p>
+              <textarea
+                style={textareaStyle}
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => setter(e.target.value)}
+              />
             </div>
-            <p style={{ color: "#4b5563", marginTop: 0, marginBottom: "12px" }}>
-              Describe your long-term goals, values, and future direction.
-            </p>
-            <textarea
-              style={textareaStyle}
-              placeholder="Describe your long-term goals, values, and ultimate vision."
-              value={values}
-              onChange={(e) => setValues(e.target.value)}
-            />
-          </div>
-
-          <div style={sectionStyle}>
-            <div style={labelRowStyle}>
-              {major ? (
-                <CheckCircle2 size={20} color="#16a34a" />
-              ) : (
-                <Circle size={20} color="#9ca3af" />
-              )}
-              <span>Why This Major?</span>
-            </div>
-            <p style={{ color: "#4b5563", marginTop: 0, marginBottom: "12px" }}>
-              Explain why you chose this major and how it supports your goals.
-            </p>
-            <textarea
-              style={textareaStyle}
-              placeholder="What drew you to this field of study? How does it align with your ambitions?"
-              value={major}
-              onChange={(e) => setMajor(e.target.value)}
-            />
-          </div>
-
-          <div style={sectionStyle}>
-            <div style={labelRowStyle}>
-              {personality ? (
-                <CheckCircle2 size={20} color="#16a34a" />
-              ) : (
-                <Circle size={20} color="#9ca3af" />
-              )}
-              <span>Your Personality & Interests</span>
-            </div>
-            <p style={{ color: "#4b5563", marginTop: 0, marginBottom: "12px" }}>
-              Share your interests, passions, and the qualities that make you unique.
-            </p>
-            <textarea
-              style={textareaStyle}
-              placeholder="What makes you unique? What are you passionate about?"
-              value={personality}
-              onChange={(e) => setPersonality(e.target.value)}
-            />
-          </div>
-
-          <div style={sectionStyle}>
-            <div style={labelRowStyle}>
-              {closing ? (
-                <CheckCircle2 size={20} color="#16a34a" />
-              ) : (
-                <Circle size={20} color="#9ca3af" />
-              )}
-              <span>Closing Summary</span>
-            </div>
-            <p style={{ color: "#4b5563", marginTop: 0, marginBottom: "12px" }}>
-              End with a strong summary of why you stand out.
-            </p>
-            <textarea
-              style={textareaStyle}
-              placeholder="Summarize why you are a strong candidate and what you hope to contribute."
-              value={closing}
-              onChange={(e) => setClosing(e.target.value)}
-            />
-          </div>
+          ))}
 
           <div
             style={{
@@ -350,59 +382,28 @@ export default function PersonalStatementForm() {
               boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h3 style={{ margin: 0, color: "#111827" }}>Personal Statement Preview</h3>
               <button
                 type="button"
                 onClick={() => setIsPreviewOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px" }}
               >
                 <X size={20} />
               </button>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-              {values && (
-                <div>
-                  <h4 style={{ color: "#111827", marginBottom: "8px" }}>Values & Future Goals</h4>
-                  <p style={{ color: "#374151", whiteSpace: "pre-wrap", margin: 0 }}>{values}</p>
-                </div>
+              {formSections.map(({ key, label, value }) =>
+                value ? (
+                  <div key={key}>
+                    <h4 style={{ color: "#111827", marginBottom: "8px" }}>{label}</h4>
+                    <p style={{ color: "#374151", whiteSpace: "pre-wrap", margin: 0 }}>{value}</p>
+                  </div>
+                ) : null
               )}
 
-              {major && (
-                <div>
-                  <h4 style={{ color: "#111827", marginBottom: "8px" }}>Why This Major?</h4>
-                  <p style={{ color: "#374151", whiteSpace: "pre-wrap", margin: 0 }}>{major}</p>
-                </div>
-              )}
-
-              {personality && (
-                <div>
-                  <h4 style={{ color: "#111827", marginBottom: "8px" }}>Personality & Interests</h4>
-                  <p style={{ color: "#374151", whiteSpace: "pre-wrap", margin: 0 }}>{personality}</p>
-                </div>
-              )}
-
-              {closing && (
-                <div>
-                  <h4 style={{ color: "#111827", marginBottom: "8px" }}>Closing Summary</h4>
-                  <p style={{ color: "#374151", whiteSpace: "pre-wrap", margin: 0 }}>{closing}</p>
-                </div>
-              )}
-
-              {!values && !major && !personality && !closing && (
+              {sections.every((s) => !s) && (
                 <p style={{ color: "#6b7280", textAlign: "center", padding: "24px 0", margin: 0 }}>
                   Start filling out the sections to preview your statement.
                 </p>
