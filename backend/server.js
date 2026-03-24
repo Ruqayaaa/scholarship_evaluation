@@ -5,7 +5,7 @@ import archiver from "archiver";
 import "dotenv/config";
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // ── Supabase clients ──────────────────────────────────────────────────────────
 
