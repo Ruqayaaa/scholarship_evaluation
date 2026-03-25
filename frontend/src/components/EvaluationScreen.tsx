@@ -252,151 +252,170 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
       <div className="reviewer-content">
 
         {/* ── STEP 1: REVIEW INFO & AI SCORES ───────────────────────────────── */}
-        {step === 1 && (
-          <div className="reviewer-stack">
-            <div className="reviewer-block">
-              <div className="reviewer-block-title">Application Information</div>
-              <div className="reviewer-grid-2">
-                {applicant.formFields.map((f, idx) => (
-                  <div key={idx} className="reviewer-field">
-                    <div className="reviewer-field-label">{f.label}</div>
-                    <div className="reviewer-field-value">{f.value || "—"}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {step === 1 && (() => {
+          const psAnswers = applicant.answers.filter((a) => a.question !== "Resume Text");
+          const resumeAnswer = applicant.answers.find((a) => a.question === "Resume Text");
+          return (
+            <div className="reviewer-stack">
 
-            {applicant.answers.length > 0 && (
+              {/* 1. Application Information */}
               <div className="reviewer-block">
-                <div className="reviewer-block-title">Personal Statement</div>
-                <div className="reviewer-stack" style={{ gap: 12 }}>
-                  {applicant.answers.map((a, i) => (
-                    <div key={i}>
-                      <div className="reviewer-field-label" style={{ marginBottom: 6 }}>{a.question}</div>
-                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,0.7)", fontSize: 14 }}>
-                        {a.answer || "Not provided"}
-                      </div>
+                <div className="reviewer-block-title">Application Information</div>
+                <div className="reviewer-grid-2">
+                  {applicant.formFields.map((f, idx) => (
+                    <div key={idx} className="reviewer-field">
+                      <div className="reviewer-field-label">{f.label}</div>
+                      <div className="reviewer-field-value">{f.value || "—"}</div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
 
-            {applicant.psScores && (
-              <div className="reviewer-block reviewer-ai">
-                <div className="reviewer-block-title">
-                  AI Scores — Personal Statement
-                  <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: "var(--muted)" }}>
-                    Overall: {applicant.psScores.overall_score} / 100
-                  </span>
-                </div>
-                <div className="reviewer-rubric" style={{ gap: 10 }}>
-                  {PS_CRITERIA.map(({ key, label }) => {
-                    const score = applicant.psScores![key] as number;
-                    const pct = (score / 20) * 100;
-                    return (
-                      <div key={key} className="rubric-row">
-                        <div className="rubric-left"><div className="rubric-title">{label}</div></div>
-                        <div style={{ flex: 1 }}>
-                          <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 20</span></div>
-                          <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+              {/* 2. Personal Statement text */}
+              {psAnswers.length > 0 && (
+                <div className="reviewer-block">
+                  <div className="reviewer-block-title">Personal Statement</div>
+                  <div className="reviewer-stack" style={{ gap: 12 }}>
+                    {psAnswers.map((a, i) => (
+                      <div key={i}>
+                        <div className="reviewer-field-label" style={{ marginBottom: 6 }}>{a.question}</div>
+                        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,0.7)", fontSize: 14 }}>
+                          {a.answer || "Not provided"}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-                {(applicant.psScores.strengths.length > 0 || applicant.psScores.improvements.length > 0) && (
-                  <div className="reviewer-grid-2" style={{ marginTop: 12 }}>
-                    {applicant.psScores.strengths.length > 0 && (
-                      <div className="reviewer-listbox">
-                        <div className="reviewer-listbox-title">Strengths</div>
-                        <ul className="reviewer-ul">{applicant.psScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
-                      </div>
-                    )}
-                    {applicant.psScores.improvements.length > 0 && (
-                      <div className="reviewer-listbox">
-                        <div className="reviewer-listbox-title">Areas to Improve</div>
-                        <ul className="reviewer-ul">{applicant.psScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
-                      </div>
-                    )}
+                    ))}
                   </div>
-                )}
-                <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "rgba(245,158,11,0.07)", border: "1.5px solid rgba(245,158,11,0.25)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "#92400e", textTransform: "uppercase", marginBottom: 8 }}>
-                    Reviewer Notes on Personal Statement Scores
-                  </div>
-                  <textarea
-                    style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(255,255,255,0.8)", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none" }}
-                    value={psAiNotes}
-                    onChange={(e) => setPsAiNotes(e.target.value)}
-                    placeholder="Note any disagreements, context, or observations about the AI scores above..."
-                    disabled={isLocked}
-                  />
                 </div>
-              </div>
-            )}
+              )}
 
-            {applicant.resumeScores && (
-              <div className="reviewer-block reviewer-ai">
-                <div className="reviewer-block-title">
-                  AI Scores — Resume
-                  <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: "var(--muted)" }}>
-                    Overall: {applicant.resumeScores.overall_score} / 180
-                  </span>
-                </div>
-                <div className="reviewer-rubric" style={{ gap: 10 }}>
-                  {RESUME_CRITERIA.map(({ key, label }) => {
-                    const score = applicant.resumeScores![key] as number;
-                    const pct = (score / 30) * 100;
-                    return (
-                      <div key={key} className="rubric-row">
-                        <div className="rubric-left"><div className="rubric-title">{label}</div></div>
-                        <div style={{ flex: 1 }}>
-                          <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 30</span></div>
-                          <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+              {/* 3. PS AI Scores */}
+              {applicant.psScores && (
+                <div className="reviewer-block reviewer-ai">
+                  <div className="reviewer-block-title">
+                    AI Scores — Personal Statement
+                    <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: "var(--muted)" }}>
+                      Overall: {applicant.psScores.overall_score} / 100
+                    </span>
+                  </div>
+                  <div className="reviewer-rubric" style={{ gap: 10 }}>
+                    {PS_CRITERIA.map(({ key, label }) => {
+                      const score = applicant.psScores![key] as number;
+                      const pct = (score / 20) * 100;
+                      return (
+                        <div key={key} className="rubric-row">
+                          <div className="rubric-left"><div className="rubric-title">{label}</div></div>
+                          <div style={{ flex: 1 }}>
+                            <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 20</span></div>
+                            <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {applicant.resumeScores.justification && (
-                  <div className="reviewer-ai-card" style={{ marginTop: 10 }}>
-                    <div className="reviewer-ai-card-title">Justification</div>
-                    <div className="reviewer-ai-card-text">{applicant.resumeScores.justification}</div>
+                      );
+                    })}
                   </div>
-                )}
-                <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "rgba(245,158,11,0.07)", border: "1.5px solid rgba(245,158,11,0.25)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "#92400e", textTransform: "uppercase", marginBottom: 8 }}>
-                    Reviewer Notes on Resume Scores
+                  {(applicant.psScores.strengths.length > 0 || applicant.psScores.improvements.length > 0) && (
+                    <div className="reviewer-grid-2" style={{ marginTop: 12 }}>
+                      {applicant.psScores.strengths.length > 0 && (
+                        <div className="reviewer-listbox">
+                          <div className="reviewer-listbox-title">Strengths</div>
+                          <ul className="reviewer-ul">{applicant.psScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                        </div>
+                      )}
+                      {applicant.psScores.improvements.length > 0 && (
+                        <div className="reviewer-listbox">
+                          <div className="reviewer-listbox-title">Areas to Improve</div>
+                          <ul className="reviewer-ul">{applicant.psScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, background: "rgba(255,255,255,0.8)", border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>
+                      Reviewer Notes
+                    </div>
+                    <textarea
+                      style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "#fff", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                      value={psAiNotes}
+                      onChange={(e) => setPsAiNotes(e.target.value)}
+                      placeholder="Add notes or observations about the PS scores..."
+                      disabled={isLocked}
+                    />
                   </div>
-                  <textarea
-                    style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(255,255,255,0.8)", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none" }}
-                    value={resumeAiNotes}
-                    onChange={(e) => setResumeAiNotes(e.target.value)}
-                    placeholder="Note any disagreements, context, or observations about the AI scores above..."
-                    disabled={isLocked}
-                  />
                 </div>
-              </div>
-            )}
+              )}
 
-            {!applicant.psScores && !applicant.resumeScores && (
-              <div className="reviewer-block reviewer-ai">
-                <div className="reviewer-block-title">AI Summary</div>
-                <div className="reviewer-ai-row">
-                  <div className="reviewer-ai-score">
-                    <div className="reviewer-ai-score-num">{applicant.aiScore}</div>
-                    <div className="reviewer-ai-score-sub">AI Score (0–100)</div>
+              {/* 4. Resume text */}
+              {resumeAnswer && (
+                <div className="reviewer-block">
+                  <div className="reviewer-block-title">Resume</div>
+                  <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,0.7)", fontSize: 14 }}>
+                    {resumeAnswer.answer || "Not provided"}
                   </div>
                 </div>
-                <div className="reviewer-ai-card">
-                  <div className="reviewer-ai-card-title">AI Feedback</div>
-                  <div className="reviewer-ai-card-text">{applicant.aiFeedback}</div>
+              )}
+
+              {/* 5. Resume AI Scores */}
+              {applicant.resumeScores && (
+                <div className="reviewer-block reviewer-ai">
+                  <div className="reviewer-block-title">
+                    AI Scores — Resume
+                    <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: "var(--muted)" }}>
+                      Overall: {applicant.resumeScores.overall_score} / 180
+                    </span>
+                  </div>
+                  <div className="reviewer-rubric" style={{ gap: 10 }}>
+                    {RESUME_CRITERIA.map(({ key, label }) => {
+                      const score = applicant.resumeScores![key] as number;
+                      const pct = (score / 30) * 100;
+                      return (
+                        <div key={key} className="rubric-row">
+                          <div className="rubric-left"><div className="rubric-title">{label}</div></div>
+                          <div style={{ flex: 1 }}>
+                            <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 30</span></div>
+                            <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {applicant.resumeScores.justification && (
+                    <div className="reviewer-ai-card" style={{ marginTop: 10 }}>
+                      <div className="reviewer-ai-card-title">Justification</div>
+                      <div className="reviewer-ai-card-text">{applicant.resumeScores.justification}</div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, background: "rgba(255,255,255,0.8)", border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>
+                      Reviewer Notes
+                    </div>
+                    <textarea
+                      style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "#fff", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                      value={resumeAiNotes}
+                      onChange={(e) => setResumeAiNotes(e.target.value)}
+                      placeholder="Add notes or observations about the resume scores..."
+                      disabled={isLocked}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+
+              {!applicant.psScores && !applicant.resumeScores && (
+                <div className="reviewer-block reviewer-ai">
+                  <div className="reviewer-block-title">AI Summary</div>
+                  <div className="reviewer-ai-row">
+                    <div className="reviewer-ai-score">
+                      <div className="reviewer-ai-score-num">{applicant.aiScore}</div>
+                      <div className="reviewer-ai-score-sub">AI Score (0–100)</div>
+                    </div>
+                  </div>
+                  <div className="reviewer-ai-card">
+                    <div className="reviewer-ai-card-title">AI Feedback</div>
+                    <div className="reviewer-ai-card-text">{applicant.aiFeedback}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── STEP 2: PORTFOLIO REVIEW & RUBRIC ─────────────────────────────── */}
         {step === 2 && (
