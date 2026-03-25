@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import type { ApplicationData } from "../application";
 import { scorePersonalStatement, scoreResume } from "../api/personalStatementApi";
+import { supabase } from "../lib/supabase";
+import { NODE_API } from "../lib/api";
 
 interface Step6Props {
   data: ApplicationData;
@@ -77,6 +79,37 @@ export function Step6Review({ data, onBack, onSubmitted }: Step6Props) {
         resumeParts.length > 0 || data.resume.uploadedFile?.length > 0;
       if (hasResumeData) {
         await scoreResume(resumeParts.join("\n\n"));
+      }
+
+      // Upload portfolio file to Supabase Storage (non-fatal if bucket missing)
+      if (data.portfolio.files.length > 0) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const file = data.portfolio.files[0];
+            const path = `${session.user.id}/${Date.now()}_${file.name}`;
+            const { error: uploadErr } = await supabase.storage
+              .from("portfolios")
+              .upload(path, file, { upsert: true });
+            if (!uploadErr) {
+              const { data: urlData } = supabase.storage.from("portfolios").getPublicUrl(path);
+              await fetch(`${NODE_API}/applicants/submit/portfolio`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  applicantId: session.user.id,
+                  portfolioUrl: urlData.publicUrl,
+                  portfolioName: file.name,
+                }),
+              });
+            }
+          }
+        } catch {
+          // Portfolio upload is non-fatal — submission still succeeds
+        }
       }
 
       onSubmitted();

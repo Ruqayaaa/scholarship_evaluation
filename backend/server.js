@@ -133,6 +133,11 @@ async function toApplicantShape(app, db = supabase) {
     db.from("reviewer_evaluations").select("*").eq("application_id", app.id),
   ]);
 
+  // Extract portfolio info stored inside personal_statement_input JSONB
+  const psInput = app.personal_statement_input || {};
+  const portfolioUrl  = psInput._portfolio_url  || null;
+  const portfolioName = psInput._portfolio_name || null;
+
   return {
     id: app.id,
     applicantId: app.applicant_id,
@@ -155,6 +160,12 @@ async function toApplicantShape(app, db = supabase) {
       ? {
           input: app.resume_input,
           score: normalizeResumeScore(app.resume_score) || {},
+        }
+      : null,
+    portfolio: portfolioUrl
+      ? {
+          summary: portfolioName || "Portfolio",
+          items: [{ title: portfolioName || "Portfolio", description: "", url: portfolioUrl }],
         }
       : null,
   };
@@ -272,6 +283,47 @@ app.post("/applicants/submit/resume", authenticate, async (req, res) => {
       status: "Submitted",
     });
     res.json({ ok: true, applicant: await toApplicantShape(data, db) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Applicant: submit portfolio (saves URL into personal_statement_input JSONB) ─
+app.post("/applicants/submit/portfolio", authenticate, async (req, res) => {
+  try {
+    const { applicantId, portfolioUrl, portfolioName } = req.body;
+    if (!applicantId || !portfolioUrl)
+      return res.status(400).json({ error: "applicantId and portfolioUrl required" });
+
+    const db = reqDb(req);
+
+    // Find the active cycle
+    const { data: activeCycle } = await supabase
+      .from("cycles").select("id").eq("status", "active")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+    // Find the applicant's current application
+    let q = db.from("applications").select("id, personal_statement_input")
+      .eq("applicant_id", applicantId);
+    q = activeCycle?.id ? q.eq("cycle_id", activeCycle.id) : q.is("cycle_id", null);
+    const { data: existing, error: findErr } = await q.maybeSingle();
+    if (findErr) throw findErr;
+    if (!existing) return res.status(404).json({ error: "No application found for this applicant" });
+
+    // Merge portfolio info into the existing JSONB without touching other fields
+    const updatedInput = {
+      ...(existing.personal_statement_input || {}),
+      _portfolio_url:  portfolioUrl,
+      _portfolio_name: portfolioName || "Portfolio",
+    };
+
+    const { error: updateErr } = await db
+      .from("applications")
+      .update({ personal_statement_input: updatedInput, updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (updateErr) throw updateErr;
+
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

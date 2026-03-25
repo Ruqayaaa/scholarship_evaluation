@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import ApplicantList from "../components/ApplicantList";
 import EvaluationScreen from "../components/EvaluationScreen";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 import type { Applicant, PsScores, ResumeScores } from "../types";
 import { supabase } from "../lib/supabase";
 import { NODE_API } from "../lib/api";
@@ -21,6 +22,10 @@ type BackendApplicant = {
   resume: {
     input: Record<string, string>;
     score: Record<string, number | string>;
+  } | null;
+  portfolio: {
+    summary: string;
+    items: { title: string; description: string; url: string }[];
   } | null;
 };
 
@@ -118,6 +123,7 @@ function toApplicant(a: BackendApplicant): Applicant {
     },
     psScores,
     resumeScores,
+    portfolio: a.portfolio ?? undefined,
   };
 }
 
@@ -125,6 +131,7 @@ export default function ReviewerPortalPage() {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -170,10 +177,12 @@ export default function ReviewerPortalPage() {
 
   return (
     <div className="bg-shell">
+      {showSettings && <ChangePasswordModal onClose={() => setShowSettings(false)} />}
       <div className="reviewer-layout">
         <div className="reviewer-body">
           <Sidebar
             onNavigateApplicants={() => setSelectedApplicant(null)}
+            onSettings={() => setShowSettings(true)}
             onLogout={handleLogout}
           />
           <main className="reviewer-main">

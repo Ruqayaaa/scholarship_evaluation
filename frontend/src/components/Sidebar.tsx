@@ -1,11 +1,26 @@
-import { Users, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, Sparkles, Settings } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 type SidebarProps = {
   onNavigateApplicants: () => void;
+  onSettings?: () => void;
   onLogout?: () => void;
 };
 
-export default function Sidebar({ onNavigateApplicants, onLogout }: SidebarProps) {
+export default function Sidebar({ onNavigateApplicants, onSettings, onLogout }: SidebarProps) {
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("Reviewer");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email ?? "");
+        setUserName(user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Reviewer");
+      }
+    });
+  }, []);
+
   return (
     <aside className="reviewer-sidebar">
       {/* Brand */}
@@ -29,14 +44,27 @@ export default function Sidebar({ onNavigateApplicants, onLogout }: SidebarProps
           <Users size={16} />
           <span>Applicants</span>
         </button>
+
+        {onSettings && (
+          <button
+            type="button"
+            className="reviewer-nav-item"
+            onClick={onSettings}
+          >
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
+        )}
       </nav>
 
       {/* User footer */}
       <div className="reviewer-footer-card2">
-        <div className="reviewer-footer-avatar">R</div>
+        <div className="reviewer-footer-avatar">
+          {userName.charAt(0).toUpperCase()}
+        </div>
         <div className="reviewer-footer-meta">
-          <div className="reviewer-footer-title">Reviewer</div>
-          <div className="reviewer-footer-text">reviewer@university.edu</div>
+          <div className="reviewer-footer-title">{userName}</div>
+          <div className="reviewer-footer-text">{userEmail}</div>
           {onLogout && (
             <button
               type="button"

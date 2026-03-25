@@ -70,6 +70,10 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     communication: "", critical: "", alignment: "", passion: "", professionalism: "",
   });
 
+  // AI score reviewer notes (step 1)
+  const [psAiNotes, setPsAiNotes] = useState("");
+  const [resumeAiNotes, setResumeAiNotes] = useState("");
+
   // Final step
   const [comments, setComments] = useState("");
   const [recommendation, setRecommendation] = useState("Pending");
@@ -132,6 +136,9 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
             passion:         s.i_passion          != null ? String(s.i_passion)          : "",
             professionalism: s.i_professionalism  != null ? String(s.i_professionalism)  : "",
           });
+          // Restore AI notes
+          if (s._ps_ai_notes)     setPsAiNotes(String(s._ps_ai_notes));
+          if (s._resume_ai_notes) setResumeAiNotes(String(s._resume_ai_notes));
           // Restore questions
           if (s._selectedQs) {
             try { setSelectedQuestions(JSON.parse(String(s._selectedQs))); } catch { /* ignore */ }
@@ -164,6 +171,9 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
       if (interviewScores.alignment)       scores.i_alignment        = parseFloat(interviewScores.alignment);
       if (interviewScores.passion)         scores.i_passion          = parseFloat(interviewScores.passion);
       if (interviewScores.professionalism) scores.i_professionalism  = parseFloat(interviewScores.professionalism);
+      // AI notes
+      if (psAiNotes)     scores._ps_ai_notes     = psAiNotes;
+      if (resumeAiNotes) scores._resume_ai_notes = resumeAiNotes;
       // Questions
       scores._selectedQs = JSON.stringify(selectedQuestions);
       scores._customQs   = JSON.stringify(customQuestions);
@@ -311,6 +321,17 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     )}
                   </div>
                 )}
+                <div style={{ marginTop: 14 }}>
+                  <div className="rubric-title" style={{ marginBottom: 6 }}>Your Notes on Personal Statement Scores</div>
+                  <textarea
+                    className="reviewer-textarea"
+                    rows={3}
+                    value={psAiNotes}
+                    onChange={(e) => setPsAiNotes(e.target.value)}
+                    placeholder="Add your observations or disagreements with the AI scores..."
+                    disabled={isLocked}
+                  />
+                </div>
               </div>
             )}
 
@@ -343,6 +364,17 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     <div className="reviewer-ai-card-text">{applicant.resumeScores.justification}</div>
                   </div>
                 )}
+                <div style={{ marginTop: 14 }}>
+                  <div className="rubric-title" style={{ marginBottom: 6 }}>Your Notes on Resume Scores</div>
+                  <textarea
+                    className="reviewer-textarea"
+                    rows={3}
+                    value={resumeAiNotes}
+                    onChange={(e) => setResumeAiNotes(e.target.value)}
+                    placeholder="Add your observations or disagreements with the AI scores..."
+                    disabled={isLocked}
+                  />
+                </div>
               </div>
             )}
 
@@ -375,19 +407,24 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     Review the portfolio materials below, then complete the rubric.
                   </p>
                   <div className="reviewer-ai-card">
-                    <div className="reviewer-ai-card-title">Portfolio Summary</div>
-                    <div className="reviewer-ai-card-text">{applicant.portfolio.summary}</div>
+                    <div className="reviewer-ai-card-title">Uploaded Portfolio</div>
+                    {applicant.portfolio.items?.map((item, i) => (
+                      <div key={i} style={{ marginTop: 8 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item.title}</div>
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="primary-btn"
+                            style={{ display: "inline-block", fontSize: 13, textDecoration: "none" }}
+                          >
+                            Open / Download Portfolio
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  {applicant.portfolio.items?.map((item, i) => (
-                    <div key={i} className="reviewer-ai-card" style={{ marginTop: 10 }}>
-                      <div className="reviewer-ai-card-title">{item.title}</div>
-                      {item.url && (
-                        <a href={item.url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: "var(--primary)" }}>
-                          View / Download
-                        </a>
-                      )}
-                    </div>
-                  ))}
                 </div>
               </>
             ) : (
@@ -638,9 +675,11 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
             {saving ? "Saving…" : "Save Progress"}
           </button>
         )}
-        <button className="primary-btn" type="button" onClick={next} disabled={step === TOTAL_STEPS}>
-          Next
-        </button>
+        {step < TOTAL_STEPS && (
+          <button className="primary-btn" type="button" onClick={next}>
+            Next
+          </button>
+        )}
       </div>
     </div>
   );
