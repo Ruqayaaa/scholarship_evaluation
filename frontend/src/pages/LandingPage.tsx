@@ -34,9 +34,9 @@ export default function LandingPage() {
               </button>
               <button
                 className="lp-btn-ghost"
-                onClick={() => navigate("/admin/login")}
+                onClick={() => navigate("/applicant/auth")}
               >
-                Administrator / Reviewer Login
+                Admin / Reviewer Login
               </button>
             </div>
 

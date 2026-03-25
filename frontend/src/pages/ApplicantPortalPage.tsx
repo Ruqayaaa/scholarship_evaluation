@@ -103,9 +103,8 @@ export default function ApplicantPortalPage() {
 
           <StepIndicator
             currentStep={isSubmitted ? 6 : step}
-            userName="Applicant"
-            userEmail="applicant@university.edu"
             onLogout={handleLogout}
+            onNavigateToStep={isSubmitted ? undefined : (s) => { if (s < step) setStep(s); }}
           />
 
           {/* Main */}

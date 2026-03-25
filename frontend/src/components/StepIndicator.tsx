@@ -1,17 +1,18 @@
+import { useEffect, useState } from "react";
 import {
   Sparkles,
   User,
   FileText,
   ScrollText,
   Upload,
-  CheckCircle2,
+  ClipboardCheck,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 type StepIndicatorProps = {
   currentStep: number;
   onLogout?: () => void;
-  userName?: string;
-  userEmail?: string;
+  onNavigateToStep?: (step: number) => void;
 };
 
 const STEPS = [
@@ -20,15 +21,28 @@ const STEPS = [
   { id: 3, label: "Resume / CV",        icon: <FileText size={16} /> },
   { id: 4, label: "Portfolio",          icon: <Upload size={16} /> },
   { id: 5, label: "Other Uploads",      icon: <Upload size={16} /> },
-  { id: 6, label: "Review & Submit",    icon: <CheckCircle2 size={16} /> },
+  { id: 6, label: "Review & Submit",    icon: <ClipboardCheck size={16} /> },
 ];
 
 export default function StepIndicator({
   currentStep,
   onLogout,
-  userName = "Applicant",
-  userEmail = "applicant@university.edu",
+  onNavigateToStep,
 }: StepIndicatorProps) {
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("Applicant");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email ?? "");
+        // Use name from metadata if set, otherwise derive from email
+        const name = user.user_metadata?.name ?? user.user_metadata?.full_name;
+        setUserName(name || user.email?.split("@")[0] || "Applicant");
+      }
+    });
+  }, []);
+
   return (
     <aside className="reviewer-sidebar applicant-sidebar">
       {/* Brand */}
@@ -47,19 +61,30 @@ export default function StepIndicator({
         {STEPS.map((s) => {
           const isActive = s.id === currentStep;
           const isDone   = s.id < currentStep;
+          const canClick = isDone && !!onNavigateToStep;
           return (
             <div
               key={s.id}
-              className={`reviewer-nav-item ${isActive ? "is-active" : ""}`}
-              style={{ cursor: "default", opacity: isDone ? 0.7 : 1 }}
+              role={canClick ? "button" : undefined}
+              tabIndex={canClick ? 0 : undefined}
+              className={`reviewer-nav-item ${isActive ? "is-active" : ""} ${isDone ? "is-done" : ""}`}
+              style={{
+                cursor: canClick ? "pointer" : "default",
+                opacity: !isActive && !isDone ? 0.5 : 1,
+              }}
+              onClick={() => canClick && onNavigateToStep(s.id)}
+              onKeyDown={(e) => e.key === "Enter" && canClick && onNavigateToStep(s.id)}
             >
               {s.icon}
               <span>{s.label}</span>
               {isDone && (
-                <CheckCircle2
-                  size={14}
-                  style={{ marginLeft: "auto", color: "#34D399" }}
-                />
+                <span style={{
+                  marginLeft: "auto", fontSize: 10, fontWeight: 800,
+                  background: "rgba(37,99,235,0.12)", color: "var(--blue)",
+                  borderRadius: 6, padding: "2px 6px", letterSpacing: "0.04em",
+                }}>
+                  DONE
+                </span>
               )}
             </div>
           );

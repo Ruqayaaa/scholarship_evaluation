@@ -16,8 +16,8 @@ export function ApplicantAuth() {
   const subtitle = useMemo(
     () =>
       mode === "login"
-        ? "Log in to access your scholarship application."
-        : "Create an account to start your scholarship application.",
+        ? "Log in to access your portal."
+        : "Create an applicant account to start your scholarship application.",
     [mode]
   );
 
@@ -39,6 +39,7 @@ export function ApplicantAuth() {
           options: { data: { role: "applicant" } },
         });
         if (signUpError) throw signUpError;
+        navigate("/app");
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -49,12 +50,14 @@ export function ApplicantAuth() {
           .eq("id", data.user.id)
           .single();
 
-        if (profile && profile.role !== "applicant") {
-          await supabase.auth.signOut();
-          throw new Error("This login is for applicants only. Use the Admin/Reviewer login.");
+        const role = profile?.role ?? "applicant";
+        switch (role) {
+          case "admin":      navigate("/admin");      break;
+          case "superadmin": navigate("/superadmin"); break;
+          case "reviewer":   navigate("/reviewer");   break;
+          default:           navigate("/app");        break;
         }
       }
-      navigate("/app");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred.");
     } finally {
@@ -69,7 +72,7 @@ export function ApplicantAuth() {
           ← Back
         </button>
 
-        <div className="auth-tag">APPLICANT PORTAL</div>
+        <div className="auth-tag">SCHOLARSHIP PORTAL</div>
         <h2 className="auth-title">
           {mode === "login" ? "Welcome Back" : "Create Account"}
         </h2>
@@ -88,7 +91,7 @@ export function ApplicantAuth() {
             className={`auth-tab ${mode === "signup" ? "is-active" : ""}`}
             onClick={() => { setMode("signup"); setError(null); }}
           >
-            Sign Up
+            New Applicant
           </button>
         </div>
 

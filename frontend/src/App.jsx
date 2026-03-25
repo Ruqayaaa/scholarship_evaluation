@@ -24,8 +24,8 @@ export default function App() {
         {/* Reviewer */}
         <Route path="/reviewer" element={<ReviewerPortalPage />} />
 
-        {/* University Admin */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+        {/* University Admin (login unified with applicant auth) */}
+        <Route path="/admin/login" element={<Navigate to="/applicant/auth" replace />} />
         <Route path="/admin" element={<AdminPortal />} />
 
         {/* Super Admin */}

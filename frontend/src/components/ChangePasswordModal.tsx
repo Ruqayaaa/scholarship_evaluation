@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { KeyRound } from "lucide-react";
 
 interface Props {
   onClose: () => void;
@@ -27,8 +28,8 @@ export default function ChangePasswordModal({ onClose }: Props) {
     if (error) {
       setMsg({ text: error.message, ok: false });
     } else {
-      setMsg({ text: "Password updated successfully.", ok: true });
-      setTimeout(onClose, 1400);
+      setMsg({ text: "Password updated successfully!", ok: true });
+      setTimeout(onClose, 1500);
     }
   }
 
@@ -36,68 +37,104 @@ export default function ChangePasswordModal({ onClose }: Props) {
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(0,0,0,0.45)", display: "flex",
-        alignItems: "center", justifyContent: "center",
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div
-        style={{
-          background: "#fff", borderRadius: 16, padding: 28,
-          width: "100%", maxWidth: 380, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          display: "flex", flexDirection: "column", gap: 16,
-        }}
-      >
-        <div style={{ fontWeight: 800, fontSize: 17, color: "var(--navy)" }}>
-          Change Password
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
-            New Password
-          </label>
-          <input
-            type="password"
-            className="input"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Min. 6 characters"
-            autoFocus
-          />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
-            Confirm Password
-          </label>
-          <input
-            type="password"
-            className="input"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Repeat new password"
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          />
-        </div>
-
-        {msg && (
-          <div
-            style={{
-              fontSize: 13, fontWeight: 600, padding: "8px 12px", borderRadius: 8,
-              background: msg.ok ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)",
-              color: msg.ok ? "#16a34a" : "#dc2626",
-            }}
-          >
-            {msg.text}
+      <div style={{
+        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400,
+        boxShadow: "0 20px 60px rgba(15,23,42,0.22)",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "20px 24px 16px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: "rgba(37,99,235,0.1)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <KeyRound size={18} color="var(--blue)" />
           </div>
-        )}
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--navy)" }}>Change Password</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Update your account password</div>
+          </div>
+        </div>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button className="ghost-btn" type="button" onClick={onClose} disabled={saving}>
+        {/* Fields */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              New Password
+            </label>
+            <input
+              type="password"
+              className="auth-input"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Min. 6 characters"
+              autoFocus
+              style={{ width: "100%", boxSizing: "border-box" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              className="auth-input"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat new password"
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              style={{ width: "100%", boxSizing: "border-box" }}
+            />
+          </div>
+
+          {msg && (
+            <div style={{
+              fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 8,
+              background: msg.ok ? "rgba(22,163,74,0.08)" : "rgba(239,68,68,0.08)",
+              border: `1px solid ${msg.ok ? "rgba(22,163,74,0.25)" : "rgba(239,68,68,0.25)"}`,
+              color: msg.ok ? "#16a34a" : "#dc2626",
+            }}>
+              {msg.text}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "14px 24px 20px",
+          borderTop: "1px solid var(--border)",
+          display: "flex", gap: 10,
+        }}>
+          <button
+            className="ghost-btn"
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            style={{ flex: 1 }}
+          >
             Cancel
           </button>
-          <button className="primary-btn" type="button" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save Password"}
+          <button
+            className="primary-btn"
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ flex: 2 }}
+          >
+            {saving ? "Saving…" : "Update Password"}
           </button>
         </div>
       </div>

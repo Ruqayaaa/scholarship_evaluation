@@ -252,12 +252,12 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                 <div style={{
                   width: 36, height: 36, borderRadius: "50%", display: "flex",
                   alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700,
-                  background: isActive ? "var(--navy)" : isComplete ? "#dcfce7" : "#f1f5f9",
-                  color: isActive ? "white" : isComplete ? "#166534" : "#94a3b8",
-                  border: isActive ? "2px solid var(--navy)" : isComplete ? "2px solid #86efac" : "2px solid #e2e8f0",
+                  background: isActive ? "var(--navy)" : isComplete ? "rgba(37,99,235,0.12)" : "#f1f5f9",
+                  color: isActive ? "white" : isComplete ? "var(--blue)" : "#94a3b8",
+                  border: isActive ? "2px solid var(--navy)" : isComplete ? "2px solid rgba(37,99,235,0.35)" : "2px solid #e2e8f0",
                   transition: "all 0.15s",
                 }}>
-                  {isComplete ? "✓" : idx + 1}
+                  {idx + 1}
                 </div>
                 <span style={{
                   fontSize: 12, fontWeight: isActive ? 700 : 500,

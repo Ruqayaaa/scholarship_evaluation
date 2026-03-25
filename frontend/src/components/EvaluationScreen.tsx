@@ -321,14 +321,15 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     )}
                   </div>
                 )}
-                <div style={{ marginTop: 14 }}>
-                  <div className="rubric-title" style={{ marginBottom: 6 }}>Your Notes on Personal Statement Scores</div>
+                <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "rgba(245,158,11,0.07)", border: "1.5px solid rgba(245,158,11,0.25)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "#92400e", textTransform: "uppercase", marginBottom: 8 }}>
+                    Reviewer Notes on Personal Statement Scores
+                  </div>
                   <textarea
-                    className="reviewer-textarea"
-                    rows={3}
+                    style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(255,255,255,0.8)", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none" }}
                     value={psAiNotes}
                     onChange={(e) => setPsAiNotes(e.target.value)}
-                    placeholder="Add your observations or disagreements with the AI scores..."
+                    placeholder="Note any disagreements, context, or observations about the AI scores above..."
                     disabled={isLocked}
                   />
                 </div>
@@ -364,14 +365,15 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     <div className="reviewer-ai-card-text">{applicant.resumeScores.justification}</div>
                   </div>
                 )}
-                <div style={{ marginTop: 14 }}>
-                  <div className="rubric-title" style={{ marginBottom: 6 }}>Your Notes on Resume Scores</div>
+                <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "rgba(245,158,11,0.07)", border: "1.5px solid rgba(245,158,11,0.25)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "#92400e", textTransform: "uppercase", marginBottom: 8 }}>
+                    Reviewer Notes on Resume Scores
+                  </div>
                   <textarea
-                    className="reviewer-textarea"
-                    rows={3}
+                    style={{ width: "100%", minHeight: 80, resize: "vertical", padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(255,255,255,0.8)", fontSize: 13, lineHeight: 1.6, fontFamily: "inherit", outline: "none" }}
                     value={resumeAiNotes}
                     onChange={(e) => setResumeAiNotes(e.target.value)}
-                    placeholder="Add your observations or disagreements with the AI scores..."
+                    placeholder="Note any disagreements, context, or observations about the AI scores above..."
                     disabled={isLocked}
                   />
                 </div>

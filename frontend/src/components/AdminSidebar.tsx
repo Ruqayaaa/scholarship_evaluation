@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -6,6 +7,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { AdminView } from "../pages/AdminPortal";
+import { supabase } from "../lib/supabase";
 
 type SidebarProps = {
   currentView: AdminView;
@@ -20,6 +22,23 @@ const NAV_ITEMS: { id: AdminView; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function Sidebar({ currentView, onNavigate }: SidebarProps) {
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("Admin");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email ?? "");
+        setUserName(user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Admin");
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   return (
     <aside className="reviewer-sidebar admin-sidebar">
       {/* Brand */}
@@ -50,15 +69,13 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
 
       {/* User footer */}
       <div className="reviewer-footer-card1">
-        <div className="reviewer-footer-avatar">A</div>
+        <div className="reviewer-footer-avatar">
+          {userName.charAt(0).toUpperCase()}
+        </div>
         <div className="reviewer-footer-meta">
-          <div className="reviewer-footer-title">Admin</div>
-          <div className="reviewer-footer-text">admin@university.edu</div>
-          <button
-            type="button"
-            className="reviewer-logout-inline"
-            onClick={() => (window.location.href = "/")}
-          >
+          <div className="reviewer-footer-title">{userName}</div>
+          <div className="reviewer-footer-text">{userEmail}</div>
+          <button type="button" className="reviewer-logout-inline" onClick={handleLogout}>
             Log out
           </button>
         </div>
