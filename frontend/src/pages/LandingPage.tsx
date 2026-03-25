@@ -32,12 +32,6 @@ export default function LandingPage() {
               >
                 APPLY FOR SCHOLARSHIP NOW
               </button>
-              <button
-                className="lp-btn-ghost"
-                onClick={() => navigate("/applicant/auth")}
-              >
-                Admin / Reviewer Login
-              </button>
             </div>
 
             <div className="lp-quick-links">

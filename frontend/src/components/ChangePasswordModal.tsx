@@ -81,7 +81,7 @@ export default function ChangePasswordModal({ onClose }: Props) {
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Min. 6 characters"
               autoFocus
-              style={{ width: "100%", boxSizing: "border-box" }}
+              style={{ width: "100%", boxSizing: "border-box", color: "#0f172a" }}
             />
           </div>
 
@@ -96,7 +96,7 @@ export default function ChangePasswordModal({ onClose }: Props) {
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Repeat new password"
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              style={{ width: "100%", boxSizing: "border-box" }}
+              style={{ width: "100%", boxSizing: "border-box", color: "#0f172a" }}
             />
           </div>
 
@@ -114,16 +114,16 @@ export default function ChangePasswordModal({ onClose }: Props) {
 
         {/* Footer */}
         <div style={{
-          padding: "14px 24px 20px",
+          padding: "12px 24px 16px",
           borderTop: "1px solid var(--border)",
-          display: "flex", gap: 10,
+          display: "flex", gap: 8, justifyContent: "flex-end",
         }}>
           <button
             className="ghost-btn"
             type="button"
             onClick={onClose}
             disabled={saving}
-            style={{ flex: 1 }}
+            style={{ padding: "7px 18px", fontSize: 13 }}
           >
             Cancel
           </button>
@@ -132,7 +132,7 @@ export default function ChangePasswordModal({ onClose }: Props) {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            style={{ flex: 2 }}
+            style={{ padding: "7px 18px", fontSize: 13 }}
           >
             {saving ? "Saving…" : "Update Password"}
           </button>

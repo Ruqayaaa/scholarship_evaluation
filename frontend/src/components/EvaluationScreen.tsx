@@ -46,7 +46,7 @@ const AVAILABLE_QUESTIONS = [
 ];
 
 // Steps are always fixed 5
-const STEP_LABELS = ["Review Info", "Portfolio", "Interview Qs", "Interview Score", "Final Decision"];
+const STEP_LABELS = ["Review Info", "Portfolio", "Interview Questions", "Interview Score", "Final Decision"];
 const TOTAL_STEPS = 5;
 
 interface Props {
@@ -268,7 +268,7 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
 
             {applicant.answers.length > 0 && (
               <div className="reviewer-block">
-                <div className="reviewer-block-title">Submitted Text</div>
+                <div className="reviewer-block-title">Personal Statement</div>
                 <div className="reviewer-stack" style={{ gap: 12 }}>
                   {applicant.answers.map((a, i) => (
                     <div key={i}>

@@ -252,7 +252,7 @@ body {
   color: white;
   border: none;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -275,7 +275,7 @@ body {
   border: 1px solid var(--border);
   color: var(--navy);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
@@ -538,7 +538,7 @@ body {
 
 .ghost-btn {
   padding: 18px 24px;
-  border-radius: 16px;
+  border-radius: 999px;
   font-size: 16px;
   min-width: 240px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
@@ -631,7 +631,7 @@ body {
 
 .primary-btn-lg {
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 15px;
   font-weight: 800;
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.30);
@@ -1116,7 +1116,7 @@ margin-top: auto;
   color: white;
   border: none;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -1126,7 +1126,7 @@ margin-top: auto;
   color: white;
   border: none;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -1197,13 +1197,13 @@ margin-top: auto;
 
 .btn{
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 999px;
   padding: 12px 14px;
   font-weight: 900;
   cursor: pointer;
   transition: all .2s ease;
 }
-.btn-sm{ padding: 10px 12px; font-size: 12px; border-radius: 10px; }
+.btn-sm{ padding: 10px 12px; font-size: 12px; border-radius: 999px; }
 
 .btn-primary{
   background: var(--blue);
@@ -1555,7 +1555,7 @@ margin-top: auto;
 .admin-primary-btn {
   background: #2563eb !important;
   color: #fff !important;
-  border-radius: 10px !important;
+  border-radius: 999px !important;
   height: 40px;
   padding: 0 14px !important;
   font-weight: 700 !important;
@@ -1566,7 +1566,7 @@ margin-top: auto;
 }
 
 .admin-outline-btn {
-  border-radius: 10px !important;
+  border-radius: 999px !important;
   height: 40px;
   padding: 0 12px !important;
   font-weight: 700 !important;
@@ -1658,7 +1658,7 @@ margin-top: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 800;
@@ -2778,7 +2778,7 @@ h1, h2, h3, h4, h5, h6,
   color: white;
   border: none;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -2789,7 +2789,7 @@ h1, h2, h3, h4, h5, h6,
   border: 1px solid var(--border);
   color: var(--navy);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
@@ -3685,7 +3685,7 @@ html, body, #root {
   color: var(--lp-white);
   border: 2px solid var(--lp-blue);
   padding: 16px 40px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -4043,7 +4043,7 @@ html, body, #root {
   color: var(--lp-white);
   border: none;
   padding: 13px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
