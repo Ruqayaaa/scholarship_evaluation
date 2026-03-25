@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Applicant, PsScores, ResumeScores } from "../types";
-import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { adminFetch } from "../lib/api";
 
@@ -21,12 +21,22 @@ const RESUME_CRITERIA: { key: keyof ResumeScores; label: string }[] = [
   { key: "awards_and_recognition",         label: "Awards & Recognition" },
 ];
 
-interface Props {
-  applicant: Applicant;
-  onBack: () => void;
-}
+const PORTFOLIO_RUBRIC = [
+  { id: "creativity", title: "Creativity & Originality",  hint: "Originality and creative expression" },
+  { id: "technical",  title: "Technical Skill",            hint: "Demonstrated technical proficiency" },
+  { id: "relevance",  title: "Relevance & Purpose",        hint: "Alignment with scholarship goals" },
+  { id: "impact",     title: "Impact & Achievement",       hint: "Evidence of meaningful outcomes" },
+];
 
-const availableQuestions = [
+const INTERVIEW_RUBRIC = [
+  { id: "communication",  title: "Communication & Clarity",          hint: "Ability to articulate ideas clearly" },
+  { id: "critical",       title: "Critical Thinking",                hint: "Depth of reasoning and problem-solving" },
+  { id: "alignment",      title: "Alignment with Scholarship Values", hint: "Connection to mission and goals" },
+  { id: "passion",        title: "Passion & Motivation",             hint: "Genuine enthusiasm and drive" },
+  { id: "professionalism",title: "Professional Demeanor",            hint: "Confidence, respect, and presence" },
+];
+
+const AVAILABLE_QUESTIONS = [
   "Can you elaborate on your leadership experience and its impact?",
   "How do you plan to contribute to your community after graduation?",
   "What specific skills have you developed through your extracurricular activities?",
@@ -35,86 +45,69 @@ const availableQuestions = [
   "What makes you uniquely qualified for this scholarship?",
 ];
 
+// Steps are always fixed 5
+const STEP_LABELS = ["Review Info", "Portfolio", "Interview Qs", "Interview Score", "Final Decision"];
+const TOTAL_STEPS = 5;
+
+interface Props {
+  applicant: Applicant;
+  onBack: () => void;
+}
+
 export default function EvaluationScreen({ applicant, onBack }: Props) {
-  const hasPortfolio = !!applicant.portfolio;
-
-  const stepLabels = useMemo(() => {
-    return hasPortfolio
-      ? ["Review", "Portfolio", "Questions", "Score", "Submit"]
-      : ["Review", "Questions", "Score", "Submit"];
-  }, [hasPortfolio]);
-
-  const totalSteps = stepLabels.length;
-
   const [step, setStep] = useState(1);
 
+  // Interview questions
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [customQuestions, setCustomQuestions] = useState<string[]>([]);
   const [newQuestion, setNewQuestion] = useState("");
 
-  const [scores, setScores] = useState({
-    academic: "",
-    leadership: "",
-    financial: "",
-    statement: "",
+  // Portfolio rubric scores (0-10 each)
+  const [portfolioScores, setPortfolioScores] = useState({ creativity: "", technical: "", relevance: "", impact: "" });
+
+  // Interview rubric scores (0-10 each)
+  const [interviewScores, setInterviewScores] = useState({
+    communication: "", critical: "", alignment: "", passion: "", professionalism: "",
   });
 
-  const [portfolioScores, setPortfolioScores] = useState({
-    creativity: "",
-    technical: "",
-    relevance: "",
-    impact: "",
-  });
-
+  // Final step
   const [comments, setComments] = useState("");
-  const [overallScore, setOverallScore] = useState(0);
-
-  // Reviewer evaluation state
-  const [reviewerId, setReviewerId] = useState<string | null>(null);
   const [recommendation, setRecommendation] = useState("Pending");
   const [evalStatus, setEvalStatus] = useState<"draft" | "submitted">("draft");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [reviewerId, setReviewerId] = useState<string | null>(null);
 
-  // Calculate overall score from rubric inputs
+  // Compute aggregate score
+  const aggregatedScore = useMemo(() => {
+    const portfolioVals = Object.values(portfolioScores).map(Number).filter((n) => !isNaN(n) && n > 0);
+    const interviewVals = Object.values(interviewScores).map(Number).filter((n) => !isNaN(n) && n > 0);
+
+    const portfolioAvg = portfolioVals.length === 4 ? portfolioVals.reduce((a, b) => a + b, 0) / 4 : null;
+    const interviewAvg = interviewVals.length === 5 ? interviewVals.reduce((a, b) => a + b, 0) / 5 : null;
+
+    // AI score contribution (normalize to 0-10)
+    const aiNorm = applicant.aiScore ? applicant.aiScore / 10 : null;
+
+    const parts: number[] = [];
+    if (aiNorm !== null) parts.push(aiNorm);
+    if (portfolioAvg !== null) parts.push(portfolioAvg);
+    if (interviewAvg !== null) parts.push(interviewAvg);
+
+    if (parts.length === 0) return 0;
+    const avg = parts.reduce((a, b) => a + b, 0) / parts.length;
+    return Math.round(avg * 10); // out of 100
+  }, [portfolioScores, interviewScores, applicant.aiScore]);
+
+  // Load session and saved evaluation
   useEffect(() => {
-    const base = Object.values(scores)
-      .filter((s) => s !== "")
-      .map((s) => parseFloat(s));
-
-    const required = hasPortfolio ? 5 : 4;
-    let all = [...base];
-
-    if (hasPortfolio) {
-      const p = Object.values(portfolioScores)
-        .filter((s) => s !== "")
-        .map((s) => parseFloat(s));
-
-      if (p.length === 4) {
-        const avg = p.reduce((a, b) => a + b, 0) / 4;
-        all.push(avg);
-      }
-    }
-
-    if (all.length === required) {
-      const avg = all.reduce((a, b) => a + b, 0) / required;
-      setOverallScore(Math.round(avg * 10));
-    } else {
-      setOverallScore(0);
-    }
-  }, [scores, portfolioScores, hasPortfolio]);
-
-  // Load reviewer ID and any saved evaluation
-  useEffect(() => {
-    async function loadEvaluation() {
+    async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
       const uid = session.user.id;
       setReviewerId(uid);
       try {
-        const res = await adminFetch(
-          `/reviewer/${uid}/applications/${applicant.id}/evaluation`
-        );
+        const res = await adminFetch(`/reviewer/${uid}/applications/${applicant.id}/evaluation`);
         if (!res.ok) return;
         const data = await res.json();
         if (!data) return;
@@ -123,30 +116,35 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
         setEvalStatus((data.status as "draft" | "submitted") || "draft");
         if (data.scores && typeof data.scores === "object") {
           const s = data.scores as Record<string, number>;
-          // Restore saved step (stored as _step in scores JSON)
-          if (s._step && typeof s._step === "number") {
-            setStep(s._step);
-          }
-          setScores({
-            academic:   s.academic   != null ? String(s.academic)   : "",
-            leadership: s.leadership != null ? String(s.leadership) : "",
-            financial:  s.financial  != null ? String(s.financial)  : "",
-            statement:  s.statement  != null ? String(s.statement)  : "",
+          if (s._step) setStep(s._step);
+          // Restore portfolio scores
+          setPortfolioScores({
+            creativity:  s.p_creativity    != null ? String(s.p_creativity)    : "",
+            technical:   s.p_technical     != null ? String(s.p_technical)     : "",
+            relevance:   s.p_relevance     != null ? String(s.p_relevance)     : "",
+            impact:      s.p_impact        != null ? String(s.p_impact)        : "",
           });
-          if (hasPortfolio) {
-            setPortfolioScores({
-              creativity: s.creativity != null ? String(s.creativity) : "",
-              technical:  s.technical  != null ? String(s.technical)  : "",
-              relevance:  s.relevance  != null ? String(s.relevance)  : "",
-              impact:     s.impact     != null ? String(s.impact)     : "",
-            });
+          // Restore interview scores
+          setInterviewScores({
+            communication:   s.i_communication   != null ? String(s.i_communication)   : "",
+            critical:        s.i_critical         != null ? String(s.i_critical)         : "",
+            alignment:       s.i_alignment        != null ? String(s.i_alignment)        : "",
+            passion:         s.i_passion          != null ? String(s.i_passion)          : "",
+            professionalism: s.i_professionalism  != null ? String(s.i_professionalism)  : "",
+          });
+          // Restore questions
+          if (s._selectedQs) {
+            try { setSelectedQuestions(JSON.parse(String(s._selectedQs))); } catch { /* ignore */ }
+          }
+          if (s._customQs) {
+            try { setCustomQuestions(JSON.parse(String(s._customQs))); } catch { /* ignore */ }
           }
         }
       } catch {
-        // silently fail — reviewer just starts fresh
+        // start fresh
       }
     }
-    loadEvaluation();
+    load();
   }, [applicant.id]);
 
   async function saveEvaluation(status: "draft" | "submitted") {
@@ -154,25 +152,27 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     setSaving(true);
     setSaveMsg(null);
     try {
-      const reviewerScores: Record<string, number> = {};
-      // Save current step so it can be restored on next login
-      reviewerScores._step = step;
-      if (scores.academic)   reviewerScores.academic   = parseFloat(scores.academic);
-      if (scores.leadership) reviewerScores.leadership = parseFloat(scores.leadership);
-      if (scores.financial)  reviewerScores.financial  = parseFloat(scores.financial);
-      if (scores.statement)  reviewerScores.statement  = parseFloat(scores.statement);
-      if (hasPortfolio) {
-        if (portfolioScores.creativity) reviewerScores.creativity = parseFloat(portfolioScores.creativity);
-        if (portfolioScores.technical)  reviewerScores.technical  = parseFloat(portfolioScores.technical);
-        if (portfolioScores.relevance)  reviewerScores.relevance  = parseFloat(portfolioScores.relevance);
-        if (portfolioScores.impact)     reviewerScores.impact     = parseFloat(portfolioScores.impact);
-      }
+      const scores: Record<string, unknown> = { _step: step };
+      // Portfolio
+      if (portfolioScores.creativity)    scores.p_creativity    = parseFloat(portfolioScores.creativity);
+      if (portfolioScores.technical)     scores.p_technical     = parseFloat(portfolioScores.technical);
+      if (portfolioScores.relevance)     scores.p_relevance     = parseFloat(portfolioScores.relevance);
+      if (portfolioScores.impact)        scores.p_impact        = parseFloat(portfolioScores.impact);
+      // Interview
+      if (interviewScores.communication)   scores.i_communication   = parseFloat(interviewScores.communication);
+      if (interviewScores.critical)        scores.i_critical         = parseFloat(interviewScores.critical);
+      if (interviewScores.alignment)       scores.i_alignment        = parseFloat(interviewScores.alignment);
+      if (interviewScores.passion)         scores.i_passion          = parseFloat(interviewScores.passion);
+      if (interviewScores.professionalism) scores.i_professionalism  = parseFloat(interviewScores.professionalism);
+      // Questions
+      scores._selectedQs = JSON.stringify(selectedQuestions);
+      scores._customQs   = JSON.stringify(customQuestions);
 
       const res = await adminFetch(
         `/reviewer/${reviewerId}/applications/${applicant.id}/evaluation`,
         {
           method: "PATCH",
-          body: JSON.stringify({ recommendation, notes: comments, scores: reviewerScores, status }),
+          body: JSON.stringify({ recommendation, notes: comments, scores, status }),
         }
       );
       if (!res.ok) throw new Error("Save failed");
@@ -188,15 +188,8 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     }
   }
 
-  const handleDownload = (name: string) => {
-    window.alert(`Downloading: ${name}`);
-  };
-
-  const toggleQuestion = (q: string) => {
-    setSelectedQuestions((prev) =>
-      prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q]
-    );
-  };
+  const toggleQuestion = (q: string) =>
+    setSelectedQuestions((prev) => prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q]);
 
   const addCustomQuestion = () => {
     const q = newQuestion.trim();
@@ -205,19 +198,8 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     setNewQuestion("");
   };
 
-  const removeCustomQuestion = (idx: number) => {
-    setCustomQuestions((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const next = () => setStep((s) => Math.min(totalSteps, s + 1));
+  const next = () => setStep((s) => Math.min(TOTAL_STEPS, s + 1));
   const prev = () => setStep((s) => Math.max(1, s - 1));
-
-  const STEP_REVIEW    = 1;
-  const STEP_PORTFOLIO = hasPortfolio ? 2 : -1;
-  const STEP_QUESTIONS = hasPortfolio ? 3 : 2;
-  const STEP_SCORE     = hasPortfolio ? 4 : 3;
-  const STEP_SUBMIT    = hasPortfolio ? 5 : 4;
-
   const isLocked = evalStatus === "submitted";
 
   return (
@@ -227,6 +209,7 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
         Back to Applicants
       </button>
 
+      {/* Stepper */}
       <div className="top-stepper">
         <div className="top-stepper-head">
           <div>
@@ -239,12 +222,11 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                 ✓ Submitted
               </span>
             )}
-            <div className="top-stepper-sub">Step {step} / {totalSteps}</div>
+            <div className="top-stepper-sub">Step {step} / {TOTAL_STEPS}</div>
           </div>
         </div>
-
         <div className="top-stepper-track">
-          {stepLabels.map((label, i) => {
+          {STEP_LABELS.map((label, i) => {
             const num = i + 1;
             const cls = num === step ? "is-active" : num < step ? "is-done" : "";
             return (
@@ -258,8 +240,9 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
       </div>
 
       <div className="reviewer-content">
-        {/* STEP 1: REVIEW */}
-        {step === STEP_REVIEW && (
+
+        {/* ── STEP 1: REVIEW INFO & AI SCORES ───────────────────────────────── */}
+        {step === 1 && (
           <div className="reviewer-stack">
             <div className="reviewer-block">
               <div className="reviewer-block-title">Application Information</div>
@@ -305,13 +288,8 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                       <div key={key} className="rubric-row">
                         <div className="rubric-left"><div className="rubric-title">{label}</div></div>
                         <div style={{ flex: 1 }}>
-                          <div className="reviewer-bar-head">
-                            <span />
-                            <span className="reviewer-bar-val">{score} / 20</span>
-                          </div>
-                          <div className="bar-track">
-                            <div className="bar-fill" style={{ width: `${pct}%` }} />
-                          </div>
+                          <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 20</span></div>
+                          <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
                         </div>
                       </div>
                     );
@@ -322,17 +300,13 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     {applicant.psScores.strengths.length > 0 && (
                       <div className="reviewer-listbox">
                         <div className="reviewer-listbox-title">Strengths</div>
-                        <ul className="reviewer-ul">
-                          {applicant.psScores.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
+                        <ul className="reviewer-ul">{applicant.psScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
                       </div>
                     )}
                     {applicant.psScores.improvements.length > 0 && (
                       <div className="reviewer-listbox">
                         <div className="reviewer-listbox-title">Areas to Improve</div>
-                        <ul className="reviewer-ul">
-                          {applicant.psScores.improvements.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
+                        <ul className="reviewer-ul">{applicant.psScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
                       </div>
                     )}
                   </div>
@@ -356,13 +330,8 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                       <div key={key} className="rubric-row">
                         <div className="rubric-left"><div className="rubric-title">{label}</div></div>
                         <div style={{ flex: 1 }}>
-                          <div className="reviewer-bar-head">
-                            <span />
-                            <span className="reviewer-bar-val">{score} / 30</span>
-                          </div>
-                          <div className="bar-track">
-                            <div className="bar-fill" style={{ width: `${pct}%` }} />
-                          </div>
+                          <div className="reviewer-bar-head"><span /><span className="reviewer-bar-val">{score} / 30</span></div>
+                          <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
                         </div>
                       </div>
                     );
@@ -395,42 +364,49 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
           </div>
         )}
 
-        {/* STEP 2: PORTFOLIO */}
-        {hasPortfolio && step === STEP_PORTFOLIO && (
+        {/* ── STEP 2: PORTFOLIO REVIEW & RUBRIC ─────────────────────────────── */}
+        {step === 2 && (
           <div className="reviewer-stack">
-            <div className="reviewer-block">
-              <div className="reviewer-block-title">Portfolio: Download & Review</div>
-              <p className="reviewer-muted" style={{ marginBottom: 12 }}>
-                Download the portfolio package first, then score it using the rubric.
-              </p>
-              <div className="reviewer-docs" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="reviewer-doc">
-                  <div className="reviewer-doc-name">Portfolio</div>
-                  <div className="reviewer-doc-meta">{applicant.portfolio?.items?.[0]?.title || "Portfolio.zip"}</div>
-                  <button className="ghost-btn" type="button" onClick={() => handleDownload("Portfolio")}>
-                    <Download size={16} /> Download Portfolio
-                  </button>
+            {applicant.portfolio ? (
+              <>
+                <div className="reviewer-block">
+                  <div className="reviewer-block-title">Portfolio</div>
+                  <p className="reviewer-muted" style={{ marginBottom: 12 }}>
+                    Review the portfolio materials below, then complete the rubric.
+                  </p>
+                  <div className="reviewer-ai-card">
+                    <div className="reviewer-ai-card-title">Portfolio Summary</div>
+                    <div className="reviewer-ai-card-text">{applicant.portfolio.summary}</div>
+                  </div>
+                  {applicant.portfolio.items?.map((item, i) => (
+                    <div key={i} className="reviewer-ai-card" style={{ marginTop: 10 }}>
+                      <div className="reviewer-ai-card-title">{item.title}</div>
+                      {item.url && (
+                        <a href={item.url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: "var(--primary)" }}>
+                          View / Download
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              </>
+            ) : (
+              <div className="reviewer-block">
+                <div className="reviewer-block-title">Portfolio</div>
+                <p className="reviewer-muted">
+                  No portfolio was uploaded by this applicant. Complete the rubric based on any materials reviewed or mark N/A by leaving scores blank.
+                </p>
               </div>
-              <div className="reviewer-ai-card" style={{ marginTop: 14 }}>
-                <div className="reviewer-ai-card-title">Portfolio Summary</div>
-                <div className="reviewer-ai-card-text">{applicant.portfolio!.summary}</div>
-              </div>
-            </div>
+            )}
 
             <div className="reviewer-block">
               <div className="reviewer-block-title">Portfolio Rubric (0–10)</div>
               <div className="reviewer-rubric">
-                {[
-                  { id: "creativity", title: "Creativity & Originality" },
-                  { id: "technical",  title: "Technical Skill" },
-                  { id: "relevance",  title: "Relevance & Purpose" },
-                  { id: "impact",     title: "Impact & Achievement" },
-                ].map((c) => (
+                {PORTFOLIO_RUBRIC.map((c) => (
                   <div className="rubric-row" key={c.id}>
                     <div className="rubric-left">
                       <div className="rubric-title">{c.title}</div>
-                      <div className="rubric-hint">Score based on the downloaded portfolio</div>
+                      <div className="rubric-hint">{c.hint}</div>
                     </div>
                     <input
                       className="rubric-input"
@@ -450,15 +426,18 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
           </div>
         )}
 
-        {/* STEP QUESTIONS */}
-        {step === STEP_QUESTIONS && (
+        {/* ── STEP 3: INTERVIEW QUESTIONS ────────────────────────────────────── */}
+        {step === 3 && (
           <div className="reviewer-stack">
             <div className="reviewer-block">
               <div className="reviewer-block-title">Suggested Interview Questions</div>
+              <p className="reviewer-muted" style={{ marginBottom: 12 }}>
+                Select questions to use in the interview. You can also add custom questions.
+              </p>
               <div className="reviewer-checklist">
-                {availableQuestions.map((q) => (
+                {AVAILABLE_QUESTIONS.map((q) => (
                   <label key={q} className="check-item">
-                    <input type="checkbox" checked={selectedQuestions.includes(q)} onChange={() => toggleQuestion(q)} />
+                    <input type="checkbox" checked={selectedQuestions.includes(q)} onChange={() => toggleQuestion(q)} disabled={isLocked} />
                     <span>{q}</span>
                   </label>
                 ))}
@@ -472,87 +451,131 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                   {customQuestions.map((q, idx) => (
                     <div key={idx} className="custom-row">
                       <span>{q}</span>
-                      <button className="icon-btn" type="button" onClick={() => removeCustomQuestion(idx)} aria-label="Remove">
-                        <Trash2 size={16} />
-                      </button>
+                      {!isLocked && (
+                        <button className="icon-btn" type="button" onClick={() => setCustomQuestions((prev) => prev.filter((_, i) => i !== idx))} aria-label="Remove">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-              <div className="reviewer-inline">
-                <input
-                  className="input"
-                  value={newQuestion}
-                  placeholder="Type your question..."
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" ? (e.preventDefault(), addCustomQuestion()) : null}
-                />
-                <button className="primary-btn" type="button" onClick={addCustomQuestion}>
-                  <Plus size={16} /> Add
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP SCORE */}
-        {step === STEP_SCORE && (
-          <div className="reviewer-block">
-            <div className="reviewer-block-title">Evaluation Rubric (0–10)</div>
-            <div className="reviewer-rubric">
-              {[
-                { id: "academic",   title: "Academic Merit",       ai: applicant.aiBreakdown.academic },
-                { id: "leadership", title: "Leadership & Impact",  ai: applicant.aiBreakdown.leadership },
-                { id: "financial",  title: "Financial Need",       ai: applicant.aiBreakdown.financial },
-                { id: "statement",  title: "Personal Statement",   ai: applicant.aiBreakdown.statement },
-              ].map((c) => (
-                <div className="rubric-row" key={c.id}>
-                  <div className="rubric-left">
-                    <div className="rubric-title">{c.title}</div>
-                    <div className="rubric-hint">AI suggested: {c.ai}/10</div>
-                  </div>
+              {!isLocked && (
+                <div className="reviewer-inline">
                   <input
-                    className="rubric-input"
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.1}
-                    value={(scores as Record<string, string>)[c.id]}
-                    onChange={(e) => setScores((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                    placeholder="0-10"
-                    disabled={isLocked}
+                    className="input"
+                    value={newQuestion}
+                    placeholder="Type your question..."
+                    onChange={(e) => setNewQuestion(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" ? (e.preventDefault(), addCustomQuestion()) : undefined}
                   />
+                  <button className="primary-btn" type="button" onClick={addCustomQuestion}>
+                    <Plus size={16} /> Add
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
 
-        {/* STEP SUBMIT */}
-        {step === STEP_SUBMIT && (
+        {/* ── STEP 4: INTERVIEW SCORING RUBRIC ──────────────────────────────── */}
+        {step === 4 && (
           <div className="reviewer-stack">
-            <div className="reviewer-block reviewer-final">
-              <div className="reviewer-final-score">
-                <div className="reviewer-final-score-num">{overallScore}</div>
-                <div className="reviewer-final-score-sub">Reviewer Score (0–100)</div>
+            <div className="reviewer-block">
+              <div className="reviewer-block-title">Interview Scoring Rubric (0–10)</div>
+              <p className="reviewer-muted" style={{ marginBottom: 16 }}>
+                Score the applicant on each criterion based on their interview performance.
+              </p>
+              <div className="reviewer-rubric">
+                {INTERVIEW_RUBRIC.map((c) => (
+                  <div className="rubric-row" key={c.id}>
+                    <div className="rubric-left">
+                      <div className="rubric-title">{c.title}</div>
+                      <div className="rubric-hint">{c.hint}</div>
+                    </div>
+                    <input
+                      className="rubric-input"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.1}
+                      value={(interviewScores as Record<string, string>)[c.id]}
+                      onChange={(e) => setInterviewScores((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                      placeholder="0-10"
+                      disabled={isLocked}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 5: FINAL SCORE & DECISION ────────────────────────────────── */}
+        {step === 5 && (
+          <div className="reviewer-stack">
+            {/* Score breakdown */}
+            <div className="reviewer-block reviewer-ai">
+              <div className="reviewer-block-title">Score Summary</div>
+              <div className="reviewer-rubric" style={{ gap: 10 }}>
+                {/* AI Score row */}
+                <div className="rubric-row">
+                  <div className="rubric-left">
+                    <div className="rubric-title">AI Score</div>
+                    <div className="rubric-hint">System-generated score</div>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: "var(--primary)", minWidth: 60, textAlign: "right" }}>
+                    {applicant.aiScore ?? "—"}<span style={{ fontWeight: 400, fontSize: 13 }}>/100</span>
+                  </div>
+                </div>
+                {/* Portfolio score row */}
+                {(() => {
+                  const vals = Object.values(portfolioScores).map(Number).filter((n) => !isNaN(n) && n > 0);
+                  const avg = vals.length === 4 ? (vals.reduce((a, b) => a + b, 0) / 4).toFixed(1) : null;
+                  return (
+                    <div className="rubric-row">
+                      <div className="rubric-left">
+                        <div className="rubric-title">Portfolio Score</div>
+                        <div className="rubric-hint">Average of portfolio rubric (0–10)</div>
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 18, color: "var(--primary)", minWidth: 60, textAlign: "right" }}>
+                        {avg ?? "—"}<span style={{ fontWeight: 400, fontSize: 13 }}>/10</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Interview score row */}
+                {(() => {
+                  const vals = Object.values(interviewScores).map(Number).filter((n) => !isNaN(n) && n > 0);
+                  const avg = vals.length === 5 ? (vals.reduce((a, b) => a + b, 0) / 5).toFixed(1) : null;
+                  return (
+                    <div className="rubric-row">
+                      <div className="rubric-left">
+                        <div className="rubric-title">Interview Score</div>
+                        <div className="rubric-hint">Average of interview rubric (0–10)</div>
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 18, color: "var(--primary)", minWidth: 60, textAlign: "right" }}>
+                        {avg ?? "—"}<span style={{ fontWeight: 400, fontSize: 13 }}>/10</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              {/* Aggregate */}
+              <div className="reviewer-final" style={{ marginTop: 16, textAlign: "center" }}>
+                <div className="reviewer-final-score-num">{aggregatedScore}</div>
+                <div className="reviewer-final-score-sub">Aggregate Score (0–100)</div>
               </div>
             </div>
 
+            {/* Recommendation */}
             <div className="reviewer-block">
               <div className="reviewer-block-title">Recommendation</div>
               <select
                 value={recommendation}
                 onChange={(e) => setRecommendation(e.target.value)}
                 disabled={isLocked}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  fontSize: 14,
-                  background: isLocked ? "#f8fafc" : "white",
-                  cursor: isLocked ? "not-allowed" : "pointer",
-                }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, background: isLocked ? "#f8fafc" : "white", cursor: isLocked ? "not-allowed" : "pointer" }}
               >
                 <option value="Pending">— Select your recommendation —</option>
                 <option value="Recommend">Recommend</option>
@@ -561,18 +584,20 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
               </select>
             </div>
 
+            {/* Comments */}
             <div className="reviewer-block">
-              <div className="reviewer-block-title">Evaluation Notes</div>
+              <div className="reviewer-block-title">Evaluation Notes & Comments</div>
               <textarea
                 className="reviewer-textarea"
                 rows={8}
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
-                placeholder="Write your notes and justification for your recommendation..."
+                placeholder="Provide your overall assessment, justification for your recommendation, and any notable observations from the interview..."
                 disabled={isLocked}
               />
             </div>
 
+            {/* Actions */}
             <div className="reviewer-actions">
               {isLocked ? (
                 <div style={{ padding: "10px 16px", background: "#dcfce7", borderRadius: 8, color: "#166534", fontWeight: 600, fontSize: 14 }}>
@@ -580,12 +605,7 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                 </div>
               ) : (
                 <>
-                  <button
-                    className="ghost-btn"
-                    type="button"
-                    onClick={() => saveEvaluation("draft")}
-                    disabled={saving}
-                  >
+                  <button className="ghost-btn" type="button" onClick={() => saveEvaluation("draft")} disabled={saving}>
                     {saving ? "Saving…" : "Save Draft"}
                   </button>
                   <button
@@ -613,20 +633,12 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
         <button className="ghost-btn" type="button" onClick={prev} disabled={step === 1}>
           Previous
         </button>
-
-        {!isLocked && reviewerId && step < totalSteps && (
-          <button
-            className="ghost-btn"
-            type="button"
-            onClick={() => saveEvaluation("draft")}
-            disabled={saving}
-            style={{ fontSize: 13 }}
-          >
+        {!isLocked && reviewerId && step < TOTAL_STEPS && (
+          <button className="ghost-btn" type="button" onClick={() => saveEvaluation("draft")} disabled={saving} style={{ fontSize: 13 }}>
             {saving ? "Saving…" : "Save Progress"}
           </button>
         )}
-
-        <button className="primary-btn" type="button" onClick={next} disabled={step === totalSteps}>
+        <button className="primary-btn" type="button" onClick={next} disabled={step === TOTAL_STEPS}>
           Next
         </button>
       </div>

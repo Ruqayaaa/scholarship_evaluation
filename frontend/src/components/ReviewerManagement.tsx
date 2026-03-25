@@ -13,6 +13,7 @@ export function ReviewerManagement() {
   const [assignedCounts, setAssignedCounts] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -36,14 +37,17 @@ export function ReviewerManagement() {
 
   async function addReviewer() {
     setError("");
-    if (!name.trim() || !email.trim()) { setError("Name and email are required."); return; }
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("Name, email and password are required.");
+      return;
+    }
     setAdding(true);
     const res = await adminFetch(`/reviewers`, {
       method: "POST",
-      body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), password: password.trim() }),
     });
     setAdding(false);
-    if (res.ok) { setName(""); setEmail(""); load(); }
+    if (res.ok) { setName(""); setEmail(""); setPassword(""); load(); }
     else { const d = await res.json(); setError(d.error ?? "Failed to add reviewer."); }
   }
 
@@ -86,14 +90,21 @@ export function ReviewerManagement() {
               placeholder="Full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              style={{ width: 200 }}
+              style={{ width: 180 }}
             />
             <Input
               placeholder="Email address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: 240 }}
+              style={{ width: 220 }}
+            />
+            <Input
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: 160 }}
             />
             <Button className="admin-primary-btn" onClick={addReviewer} disabled={adding}>
               {adding ? "Adding…" : "Add Reviewer"}

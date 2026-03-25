@@ -649,29 +649,34 @@ app.get("/reviewers", async (_req, res) => {
   }
 });
 
-// ── Reviewers: add (sends invite email) ──────────────────────────────────────
+// ── Reviewers: add (creates account directly with password) ──────────────────
 app.post("/reviewers", async (req, res) => {
   try {
-    const { name, email } = req.body;
-    if (!name || !email)
-      return res.status(400).json({ error: "name and email required" });
+    const { name, email, password } = req.body;
+    if (!name || !email || !password)
+      return res.status(400).json({ error: "name, email and password required" });
 
-    // Invite sends an email; the reviewer sets their own password
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      data: { name, role: "reviewer" },
+    // Create the user directly — no invite email needed
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, role: "reviewer" },
     });
 
     if (error) {
-      if (error.message.toLowerCase().includes("already"))
+      if (
+        error.message.toLowerCase().includes("already") ||
+        error.message.toLowerCase().includes("exists")
+      )
         return res.status(409).json({ error: "Reviewer with this email already exists" });
       throw error;
     }
 
-    // Update profile name/role (trigger may have already created it)
+    // Upsert profile — works even if the trigger hasn't fired yet
     await supabase
       .from("profiles")
-      .update({ name, role: "reviewer" })
-      .eq("id", data.user.id);
+      .upsert({ id: data.user.id, name, role: "reviewer" }, { onConflict: "id" });
 
     res.json({ ok: true, reviewer: { id: data.user.id, name, email } });
   } catch (err) {
