@@ -316,13 +316,13 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     <div className="reviewer-grid-2" style={{ marginTop: 12 }}>
                       {applicant.psScores.strengths.length > 0 && (
                         <div className="reviewer-listbox">
-                          <div className="reviewer-listbox-title">Strengths</div>
+                          <div className="reviewer-listbox-title">STRENGTHS:</div>
                           <ul className="reviewer-ul">{applicant.psScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
                         </div>
                       )}
                       {applicant.psScores.improvements.length > 0 && (
                         <div className="reviewer-listbox">
-                          <div className="reviewer-listbox-title">Areas to Improve</div>
+                          <div className="reviewer-listbox-title">AREAS TO IMPROVE:</div>
                           <ul className="reviewer-ul">{applicant.psScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
                         </div>
                       )}
@@ -381,13 +381,13 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     <div className="reviewer-grid-2" style={{ marginTop: 12 }}>
                       {applicant.resumeScores.strengths.length > 0 && (
                         <div className="reviewer-listbox">
-                          <div className="reviewer-listbox-title">Strengths</div>
+                          <div className="reviewer-listbox-title">STRENGTHS:</div>
                           <ul className="reviewer-ul">{applicant.resumeScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
                         </div>
                       )}
                       {applicant.resumeScores.improvements.length > 0 && (
                         <div className="reviewer-listbox">
-                          <div className="reviewer-listbox-title">Areas to Improve</div>
+                          <div className="reviewer-listbox-title">AREAS TO IMPROVE:</div>
                           <ul className="reviewer-ul">{applicant.resumeScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
                         </div>
                       )}

@@ -169,11 +169,13 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
         method: "PATCH",
         body: JSON.stringify({ interviewAt: interviewDate ? new Date(interviewDate).toISOString() : null, message: interviewMsg }),
       });
-      if (!res.ok) throw new Error("Failed");
+      let body: { error?: string; ok?: boolean } = {};
+      try { body = await res.json(); } catch { /* non-JSON response */ }
+      if (!res.ok) throw new Error(body.error || `Server returned ${res.status}`);
       setScheduleResult("Interview scheduled successfully.");
       await loadApplicant();
-    } catch {
-      setScheduleResult("Failed to schedule interview.");
+    } catch (err) {
+      setScheduleResult(`Failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSchedulingInterview(false);
     }
@@ -415,7 +417,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   </div>
                   {Array.isArray(ps.score.strengths) && ps.score.strengths.length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Strengths</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>STRENGTHS:</div>
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
                         {(ps.score.strengths as string[]).map((s, i) => <li key={i}>{s}</li>)}
                       </ul>
@@ -423,7 +425,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   )}
                   {Array.isArray(ps.score.improvements) && ps.score.improvements.length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Areas to Improve</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>AREAS TO IMPROVE:</div>
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
                         {(ps.score.improvements as string[]).map((s, i) => <li key={i}>{s}</li>)}
                       </ul>
@@ -460,7 +462,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   <div className="llm-overall-title">Overall: {(re.score.overall_score as number) ?? "—"} / 180</div>
                   {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Strengths</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>STRENGTHS:</div>
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
                         {(re.score.strengths as string[]).map((s, i) => <li key={i}>{s}</li>)}
                       </ul>
@@ -468,7 +470,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   )}
                   {Array.isArray(re.score.improvements) && (re.score.improvements as string[]).length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Areas to Improve</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>AREAS TO IMPROVE:</div>
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
                         {(re.score.improvements as string[]).map((s, i) => <li key={i}>{s}</li>)}
                       </ul>
