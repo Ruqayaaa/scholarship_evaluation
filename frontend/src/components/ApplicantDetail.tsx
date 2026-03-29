@@ -169,13 +169,11 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
         method: "PATCH",
         body: JSON.stringify({ interviewAt: interviewDate ? new Date(interviewDate).toISOString() : null, message: interviewMsg }),
       });
-      let body: { error?: string; ok?: boolean } = {};
-      try { body = await res.json(); } catch { /* non-JSON response */ }
-      if (!res.ok) throw new Error(body.error || `Server returned ${res.status}`);
+      if (!res.ok) throw new Error();
       setScheduleResult("Interview scheduled successfully.");
       await loadApplicant();
-    } catch (err) {
-      setScheduleResult(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } catch {
+      setScheduleResult("Failed to schedule interview. Please try again.");
     } finally {
       setSchedulingInterview(false);
     }
