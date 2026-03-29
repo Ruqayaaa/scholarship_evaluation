@@ -148,6 +148,8 @@ async function toApplicantShape(app, db = supabase) {
     finalDecision: app.final_decision || "Pending",
     decisionNotes: app.decision_notes || "",
     decisionAt: app.decision_at || null,
+    interviewAt: app.interview_at || null,
+    interviewMessage: app.interview_message || "",
     assignedReviewerIds: assignments?.map((a) => a.reviewer_id) || [],
     reviewerEvaluations: evaluations || [],
     personalStatement: app.personal_statement_input
@@ -828,6 +830,31 @@ app.patch("/reviewer/:reviewerId/applications/:appId/evaluation", async (req, re
     }
 
     res.json({ ok: true, evaluation: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: schedule interview ─────────────────────────────────────────────────
+app.patch("/admin/applicants/:id/interview", async (req, res) => {
+  try {
+    const { interviewAt, message } = req.body;
+    const db = reqDb(req);
+
+    const { data, error } = await db
+      .from("applications")
+      .update({
+        interview_at: interviewAt || null,
+        interview_message: message || "",
+        status: interviewAt ? "Interview Scheduled" : "Under Review",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ ok: true, applicant: await toApplicantShape(data, db) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

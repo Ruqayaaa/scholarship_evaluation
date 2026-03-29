@@ -48,6 +48,8 @@ type BackendApplicant = {
   finalDecision: string;
   decisionNotes: string;
   decisionAt: string | null;
+  interviewAt: string | null;
+  interviewMessage: string;
   assignedReviewerIds: string[];
   reviewerEvaluations: ReviewerEvaluation[];
   personalStatement: {
@@ -102,6 +104,12 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
   const [savingDecision, setSavingDecision] = useState(false);
   const [decisionMsg, setDecisionMsg] = useState<string | null>(null);
 
+  const [interviewDate, setInterviewDate] = useState("");
+  const [interviewMsg, setInterviewMsg] = useState("");
+  const [schedulingInterview, setSchedulingInterview] = useState(false);
+  const [scheduleResult, setScheduleResult] = useState<string | null>(null);
+  const [rejectingQuick, setRejectingQuick] = useState(false);
+
   function loadApplicant() {
     return adminFetch(`/admin/applicants/${applicantId}`)
       .then((r) => r.json())
@@ -109,6 +117,11 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
         setApplicant(data);
         setDecision(data.finalDecision || "Pending");
         setDecisionNotes(data.decisionNotes || "");
+        if (data.interviewAt) {
+          // Convert ISO to datetime-local format (YYYY-MM-DDTHH:MM)
+          setInterviewDate(data.interviewAt.slice(0, 16));
+          setInterviewMsg(data.interviewMessage || "");
+        }
         if (data?.applicantId) {
           adminFetch(`/admin/history/${data.applicantId}`)
             .then((r) => r.json())
@@ -153,6 +166,41 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
       body: JSON.stringify({ reviewerId }),
     });
     await loadApplicant();
+  }
+
+  async function scheduleInterview() {
+    setSchedulingInterview(true);
+    setScheduleResult(null);
+    try {
+      const res = await adminFetch(`/admin/applicants/${applicantId}/interview`, {
+        method: "PATCH",
+        body: JSON.stringify({ interviewAt: interviewDate ? new Date(interviewDate).toISOString() : null, message: interviewMsg }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setScheduleResult("Interview scheduled successfully.");
+      await loadApplicant();
+    } catch {
+      setScheduleResult("Failed to schedule interview.");
+    } finally {
+      setSchedulingInterview(false);
+    }
+  }
+
+  async function quickReject() {
+    if (!confirm(`Reject ${applicant?.name}? This will lock the decision.`)) return;
+    setRejectingQuick(true);
+    try {
+      const res = await adminFetch(`/admin/applicants/${applicantId}/decision`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision: "Rejected", notes: "" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      await loadApplicant();
+    } catch {
+      // silently fail — loadApplicant will update state anyway
+    } finally {
+      setRejectingQuick(false);
+    }
   }
 
   async function saveDecision() {
@@ -428,6 +476,73 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
             <Card className="admin-card">
               <CardContent className="admin-card__content">
                 <p className="admin-empty">No scored submissions yet.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {(ps || re) && !isDecisionLocked && (
+            <Card className="admin-card" style={{ gridColumn: "1 / -1" }}>
+              <CardHeader className="admin-card__header">
+                <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="admin-card__content">
+                {applicant.interviewAt && (
+                  <div style={{ padding: "10px 14px", marginBottom: 16, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700, color: "#1d4ed8" }}>Interview scheduled: </span>
+                    {new Date(applicant.interviewAt).toLocaleString()}
+                    {applicant.interviewMessage && <span style={{ color: "#374151" }}> — {applicant.interviewMessage}</span>}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+                      Schedule Interview
+                    </label>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Date & Time</div>
+                        <input
+                          type="datetime-local"
+                          value={interviewDate}
+                          onChange={(e) => setInterviewDate(e.target.value)}
+                          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14 }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Message to applicant (optional)</div>
+                        <input
+                          type="text"
+                          value={interviewMsg}
+                          onChange={(e) => setInterviewMsg(e.target.value)}
+                          placeholder="e.g. Interview via Zoom, link will be sent"
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
+                        />
+                      </div>
+                      <Button
+                        className="admin-primary-btn"
+                        onClick={scheduleInterview}
+                        disabled={!interviewDate || schedulingInterview}
+                      >
+                        {schedulingInterview ? "Scheduling…" : applicant.interviewAt ? "Update Schedule" : "Schedule Interview"}
+                      </Button>
+                    </div>
+                    {scheduleResult && (
+                      <p style={{ fontSize: 13, marginTop: 6, color: scheduleResult.includes("Failed") ? "#ef4444" : "#16a34a", fontWeight: 600 }}>
+                        {scheduleResult}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
+                    <Button
+                      onClick={quickReject}
+                      disabled={rejectingQuick}
+                      style={{ background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca", fontWeight: 700, fontSize: 13, padding: "8px 18px", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      {rejectingQuick ? "Rejecting…" : "Reject Applicant"}
+                    </Button>
+                    <span style={{ marginLeft: 10, fontSize: 12, color: "#94a3b8" }}>This will lock the decision as Rejected</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

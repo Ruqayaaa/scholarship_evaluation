@@ -121,6 +121,46 @@ async function extractImageText(file: File, onProgress: (p: number) => void): Pr
   return result.data.text.trim();
 }
 
+type SectionComponentProps = {
+  k: SectionKey;
+  title: string;
+  example: string;
+  placeholder: string;
+  value: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+};
+
+function Section({ title, example, placeholder, value, isOpen, onToggle, onChange }: SectionComponentProps) {
+  const done = String(value).trim().length > 0;
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, background: "rgba(255,255,255,0.96)", overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: done ? "#16a34a" : "#cbd5e1", boxShadow: done ? "0 0 0 4px rgba(22,163,74,0.12)" : "none" }} />
+          <span style={{ fontWeight: 900, color: "var(--navy)" }}>{title}</span>
+        </div>
+        <span style={{ color: "var(--muted)", fontWeight: 800 }}>{isOpen ? "−" : "+"}</span>
+      </button>
+      {isOpen && (
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 10 }}>
+            <span style={{ fontWeight: 800 }}>Example:</span> {example}
+          </div>
+          <div className="input-wrap" style={{ alignItems: "stretch" }}>
+            <textarea className="input" style={{ minHeight: 150, resize: "vertical" }} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2Props) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
@@ -209,34 +249,6 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
     },
   ];
 
-  const Section = ({ k, title, example, placeholder, value }: { k: SectionKey; title: string; example: string; placeholder: string; value: string }) => {
-    const done = String(value).trim().length > 0;
-    return (
-      <div style={{ border: "1px solid var(--border)", borderRadius: 14, background: "rgba(255,255,255,0.96)", overflow: "hidden" }}>
-        <button
-          type="button"
-          onClick={() => toggle(k)}
-          style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: done ? "#16a34a" : "#cbd5e1", boxShadow: done ? "0 0 0 4px rgba(22,163,74,0.12)" : "none" }} />
-            <span style={{ fontWeight: 900, color: "var(--navy)" }}>{title}</span>
-          </div>
-          <span style={{ color: "var(--muted)", fontWeight: 800 }}>{openSections[k] ? "−" : "+"}</span>
-        </button>
-        {openSections[k] && (
-          <div style={{ padding: "0 16px 16px" }}>
-            <div style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 10 }}>
-              <span style={{ fontWeight: 800 }}>Example:</span> {example}
-            </div>
-            <div className="input-wrap" style={{ alignItems: "stretch" }}>
-              <textarea className="input" style={{ minHeight: 150, resize: "vertical" }} placeholder={placeholder} value={value} onChange={(e) => handleChange(k, e.target.value)} />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const PreviewModal = () => (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -339,7 +351,17 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {SECTIONS.map((s) => (
-            <Section key={s.k} {...s} value={data[s.k]} />
+            <Section
+              key={s.k}
+              k={s.k}
+              title={s.title}
+              example={s.example}
+              placeholder={s.placeholder}
+              value={data[s.k]}
+              isOpen={openSections[s.k]}
+              onToggle={() => toggle(s.k)}
+              onChange={(v) => handleChange(s.k, v)}
+            />
           ))}
         </div>
 

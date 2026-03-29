@@ -19,6 +19,28 @@ type Step1Props = {
   onNext: () => void;
 };
 
+function Field({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor={id}>
+        {label}
+      </label>
+      {children}
+      {hint ? <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 6 }}>{hint}</div> : null}
+    </div>
+  );
+}
+
 export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
   const countries = [
     "United States",
@@ -58,26 +80,6 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
   const canContinue = requiredFields.every((k) => String(data[k]).trim().length > 0);
 
   const handleSaveDraft = () => alert("Draft saved successfully!");
-
-  const Field = ({
-    id,
-    label,
-    hint,
-    children,
-  }: {
-    id: string;
-    label: string;
-    hint?: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="form-group">
-      <label className="form-label" htmlFor={id}>
-        {label}
-      </label>
-      {children}
-      {hint ? <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 6 }}>{hint}</div> : null}
-    </div>
-  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

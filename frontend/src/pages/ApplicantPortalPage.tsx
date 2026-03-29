@@ -22,6 +22,8 @@ export default function ApplicantPortalPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [finalDecision, setFinalDecision] = useState<string | null>(null);
   const [decisionNotes, setDecisionNotes] = useState<string | null>(null);
+  const [interviewAt, setInterviewAt] = useState<string | null>(null);
+  const [interviewMessage, setInterviewMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkStatus() {
@@ -41,6 +43,10 @@ export default function ApplicantPortalPage() {
         if (data.finalDecision && data.finalDecision !== "Pending") {
           setFinalDecision(data.finalDecision);
           if (data.decisionNotes) setDecisionNotes(data.decisionNotes);
+        }
+        if (data.interviewAt) {
+          setInterviewAt(data.interviewAt);
+          if (data.interviewMessage) setInterviewMessage(data.interviewMessage);
         }
       } catch {
         // silently fail
@@ -122,6 +128,26 @@ export default function ApplicantPortalPage() {
                       Your application is locked and under review. We'll update this page once a decision is made.
                     </p>
                   </div>
+
+                  {interviewAt && !finalDecision && (
+                    <div style={{
+                      padding: "14px 16px",
+                      borderRadius: 10,
+                      background: "rgba(37,99,235,0.06)",
+                      border: "1.5px solid rgba(37,99,235,0.25)",
+                      color: "var(--navy)",
+                    }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
+                        Interview Scheduled
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {new Date(interviewAt).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
+                      </div>
+                      {interviewMessage && (
+                        <div style={{ fontSize: 13, marginTop: 4, color: "#374151", lineHeight: 1.6 }}>{interviewMessage}</div>
+                      )}
+                    </div>
+                  )}
 
                   {finalDecision ? (
                     <div style={{
