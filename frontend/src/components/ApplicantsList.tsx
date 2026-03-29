@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { adminFetch, toLlmScore } from "../lib/api";
+import { adminFetch } from "../lib/api";
 
 interface ApplicantsListProps {
   onViewApplicant: (id: string) => void;
@@ -31,7 +31,6 @@ type Row = {
   name: string;
   submittedAt: string;
   status: string;
-  llmScore: number | null;
   assignedCount: number;
   returning: boolean;
 };
@@ -67,7 +66,6 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
             name: a.name,
             submittedAt: new Date(a.submittedAt).toLocaleString(),
             status: a.status,
-            llmScore: toLlmScore(a),
             assignedCount: a.assignedReviewerIds.length,
             returning: a.returning ?? false,
           }))
@@ -126,7 +124,6 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
                   <th>Applicant</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th className="admin-td--num">AI Score (/100)</th>
                   <th className="admin-td--center">Reviewers Assigned</th>
                   <th className="admin-td--right">Action</th>
                 </tr>
@@ -155,11 +152,6 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
                         {a.status}
                       </span>
                     </td>
-                    <td className="admin-td--num">
-                      <span className="admin-pill admin-pill--blue">
-                        {a.llmScore != null ? a.llmScore.toFixed(1) : "—"}
-                      </span>
-                    </td>
                     <td className="admin-td--center">
                       <span className="admin-pill admin-pill--outline">{a.assignedCount}</span>
                     </td>
@@ -172,7 +164,7 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="admin-empty">
+                    <td colSpan={5} className="admin-empty">
                       {rows.length === 0
                         ? "No submissions yet. Applicants will appear here after submitting a form."
                         : "No applicants match your filters."}

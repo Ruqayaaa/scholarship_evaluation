@@ -137,10 +137,12 @@ async function toApplicantShape(app, db = supabase) {
     db.from("reviewer_evaluations").select("*").eq("application_id", app.id),
   ]);
 
-  // Extract portfolio info stored inside personal_statement_input JSONB
+  // Extract metadata stored inside personal_statement_input JSONB
   const psInput = app.personal_statement_input || {};
-  const portfolioUrl  = psInput._portfolio_url  || null;
-  const portfolioName = psInput._portfolio_name || null;
+  const portfolioUrl    = psInput._portfolio_url    || null;
+  const portfolioName   = psInput._portfolio_name   || null;
+  const interviewAt     = psInput._interview_at     || null;
+  const interviewMessage = psInput._interview_message || "";
 
   return {
     id: app.id,
@@ -152,8 +154,8 @@ async function toApplicantShape(app, db = supabase) {
     finalDecision: app.final_decision || "Pending",
     decisionNotes: app.decision_notes || "",
     decisionAt: app.decision_at || null,
-    interviewAt: app.interview_at || null,
-    interviewMessage: app.interview_message || "",
+    interviewAt,
+    interviewMessage,
     assignedReviewerIds: assignments?.map((a) => a.reviewer_id) || [],
     reviewerEvaluations: evaluations || [],
     personalStatement: app.personal_statement_input
@@ -840,16 +842,30 @@ app.patch("/reviewer/:reviewerId/applications/:appId/evaluation", async (req, re
 });
 
 // ── Admin: schedule interview ─────────────────────────────────────────────────
+// Stores interview data inside personal_statement_input JSONB (no schema change needed)
 app.patch("/admin/applicants/:id/interview", async (req, res) => {
   try {
     const { interviewAt, message } = req.body;
     const db = reqDb(req);
 
+    // Read existing input so we can merge without overwriting applicant data
+    const { data: existing, error: fetchErr } = await db
+      .from("applications")
+      .select("personal_statement_input")
+      .eq("id", req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const updatedInput = {
+      ...(existing?.personal_statement_input || {}),
+      _interview_at: interviewAt || null,
+      _interview_message: message || "",
+    };
+
     const { data, error } = await db
       .from("applications")
       .update({
-        interview_at: interviewAt || null,
-        interview_message: message || "",
+        personal_statement_input: updatedInput,
         status: interviewAt ? "Interview Scheduled" : "Under Review",
         updated_at: new Date().toISOString(),
       })

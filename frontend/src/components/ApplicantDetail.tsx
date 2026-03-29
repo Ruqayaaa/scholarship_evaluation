@@ -385,7 +385,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
       {/* Step: AI Scores */}
       {activeStep === "scores" && (
         <div className="detail-grid">
-          {ps && (
+          {ps && (ps.score.overall_score as number) > 0 && (
             <Card className="admin-card">
               <CardHeader className="admin-card__header">
                 <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Personal Statement Scores</CardTitle>
@@ -433,7 +433,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
               </CardContent>
             </Card>
           )}
-          {re && (
+          {re && (re.score.overall_score as number) > 0 && (
             <Card className="admin-card">
               <CardHeader className="admin-card__header">
                 <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Resume Scores</CardTitle>
@@ -481,7 +481,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
               </CardContent>
             </Card>
           )}
-          {!ps && !re && (
+          {(!ps || (ps.score.overall_score as number) === 0) && (!re || (re.score.overall_score as number) === 0) && (
             <Card className="admin-card">
               <CardContent className="admin-card__content">
                 <p className="admin-empty">No scored submissions yet.</p>
@@ -489,7 +489,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
             </Card>
           )}
 
-          {(ps || re) && !isDecisionLocked && (
+          {((ps && (ps.score.overall_score as number) > 0) || (re && (re.score.overall_score as number) > 0)) && !isDecisionLocked && (
             <Card className="admin-card" style={{ gridColumn: "1 / -1" }}>
               <CardHeader className="admin-card__header">
                 <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Actions</CardTitle>

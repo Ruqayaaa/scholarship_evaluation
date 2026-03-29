@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
-import { adminFetch, toLlmScore } from "../lib/api";
+import { adminFetch } from "../lib/api";
 
 interface OverviewProps {
   onViewApplicants: () => void;
@@ -8,7 +8,7 @@ interface OverviewProps {
 }
 
 type Stats = { total: number; submitted: number; underReview: number; reviewers: number };
-type Row   = { id: string; name: string; submittedAt: string; status: string; llmScore: number | null };
+type Row   = { id: string; name: string; submittedAt: string; status: string };
 type BackendApplicant = {
   id: string;
   name: string;
@@ -48,7 +48,6 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
             name: a.name,
             submittedAt: new Date(a.submittedAt).toLocaleDateString(),
             status: a.status,
-            llmScore: toLlmScore(a),
           }));
         setLatest(rows);
       })
@@ -94,7 +93,6 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                   <th>Applicant</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th>AI Score (/100)</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,9 +104,6 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                       <span className={`status ${a.status === "Under Review" ? "info" : ""}`}>
                         {a.status}
                       </span>
-                    </td>
-                    <td className="admin-td--num">
-                      {a.llmScore != null ? a.llmScore.toFixed(1) : "—"}
                     </td>
                   </tr>
                 ))}
