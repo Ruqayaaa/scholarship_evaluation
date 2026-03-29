@@ -287,6 +287,11 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
   const removeSkill = (skill: string) => onUpdate({ ...data, skills: data.skills.filter((s) => s !== skill) });
   const handleSaveDraft = () => alert("Draft saved successfully!");
 
+  const hasValidEducation = data.education.some(
+    (e) => e.institution.trim().length > 0 && e.degree.trim().length > 0
+  );
+  const canContinue = hasValidEducation;
+
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -656,9 +661,24 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <button type="button" className="ghost-btn" onClick={onBack}>← Back</button>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
-          <button type="button" className="primary-btn primary-btn-lg" onClick={onNext}>Next →</button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          {!canContinue && (
+            <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
+              Add at least one education entry (institution + degree required).
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
+            <button
+              type="button"
+              className="primary-btn primary-btn-lg"
+              onClick={onNext}
+              disabled={!canContinue}
+              style={!canContinue ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
 

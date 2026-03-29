@@ -77,7 +77,10 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
     "ieltsScore",
   ];
 
-  const canContinue = requiredFields.every((k) => String(data[k]).trim().length > 0);
+  const allFilled = requiredFields.every((k) => String(data[k]).trim().length > 0);
+  const ieltsNum = parseFloat(data.ieltsScore);
+  const ieltsOk = !data.ieltsScore || isNaN(ieltsNum) || ieltsNum >= 6.0;
+  const canContinue = allFilled && !isNaN(ieltsNum) && ieltsNum >= 6.0;
 
   const handleSaveDraft = () => alert("Draft saved successfully!");
 
@@ -257,8 +260,14 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
                     placeholder="e.g., 6.5"
                     value={data.ieltsScore}
                     onChange={(e) => setField("ieltsScore", e.target.value)}
+                    style={data.ieltsScore && !ieltsOk ? { borderColor: "#ef4444" } : undefined}
                   />
                 </div>
+                {data.ieltsScore && !ieltsOk && (
+                  <div style={{ color: "#ef4444", fontSize: 13, marginTop: 4, fontWeight: 600 }}>
+                    IELTS score must be 6.0 or above to be eligible.
+                  </div>
+                )}
               </Field>
             </div>
           </div>
@@ -290,7 +299,14 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
           Save Draft
         </button>
 
-      <button className="primary-btn" type="button" onClick={onNext}>
+      <button
+        className="primary-btn"
+        type="button"
+        onClick={onNext}
+        disabled={!canContinue}
+        style={!canContinue ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+        title={!allFilled ? "Please fill all required fields" : !ieltsOk ? "IELTS score must be 6.0 or above" : undefined}
+      >
         Next →
       </button>
 

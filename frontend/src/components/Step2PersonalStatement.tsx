@@ -187,6 +187,9 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
   }, [data.valuesGoals, data.whyMajor, data.interests, data.summary]);
 
   const isOverLimit = wordCount > 1000;
+  const sectionsFilledCount = [data.valuesGoals, data.whyMajor, data.interests, data.summary]
+    .filter((v) => v.trim().length > 0).length;
+  const canContinue = !isOverLimit && sectionsFilledCount >= 2;
   const toggle = (k: SectionKey) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
   const handleSaveDraft = () => alert("Draft saved successfully!");
 
@@ -366,8 +369,15 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
         </div>
 
         <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 800, color: isOverLimit ? "#b91c1c" : "var(--muted)" }}>
-            Word count: {wordCount} / 1000 {isOverLimit ? "(exceeds limit)" : ""}
+          <div>
+            <div style={{ fontWeight: 800, color: isOverLimit ? "#b91c1c" : "var(--muted)" }}>
+              Word count: {wordCount} / 1000 {isOverLimit ? "(exceeds limit)" : ""}
+            </div>
+            {!isOverLimit && sectionsFilledCount < 2 && (
+              <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600, marginTop: 2 }}>
+                Complete at least 2 sections to continue ({sectionsFilledCount}/2 done).
+              </div>
+            )}
           </div>
           <button type="button" className="ghost-btn" onClick={() => setIsPreviewOpen(true)} style={{ borderColor: "rgba(37, 99, 235, 0.35)" }}>
             Preview Statement
@@ -380,7 +390,7 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
         <button type="button" className="ghost-btn" onClick={onBack}>← Back</button>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
-          <button type="button" className="primary-btn primary-btn-lg" onClick={onNext} disabled={isOverLimit} style={isOverLimit ? { opacity: 0.65, cursor: "not-allowed" } : undefined}>
+          <button type="button" className="primary-btn primary-btn-lg" onClick={onNext} disabled={!canContinue} style={!canContinue ? { opacity: 0.65, cursor: "not-allowed" } : undefined}>
             Next →
           </button>
         </div>

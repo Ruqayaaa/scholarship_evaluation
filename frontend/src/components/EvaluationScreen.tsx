@@ -682,11 +682,16 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                   <button className="ghost-btn" type="button" onClick={() => saveEvaluation("draft")} disabled={saving}>
                     {saving ? "Saving…" : "Save Draft"}
                   </button>
+                  {recommendation !== "Pending" && comments.trim().length === 0 && (
+                    <span style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
+                      Please add evaluation notes before submitting.
+                    </span>
+                  )}
                   <button
                     className="approve-btn"
                     type="button"
                     onClick={() => saveEvaluation("submitted")}
-                    disabled={saving || recommendation === "Pending"}
+                    disabled={saving || recommendation === "Pending" || comments.trim().length === 0}
                   >
                     {saving ? "Submitting…" : "Submit Evaluation"}
                   </button>

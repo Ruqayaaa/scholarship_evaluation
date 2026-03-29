@@ -41,6 +41,14 @@ export function ReviewerManagement() {
       setError("Name, email and password are required.");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (password.trim().length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setAdding(true);
     const res = await adminFetch(`/reviewers`, {
       method: "POST",

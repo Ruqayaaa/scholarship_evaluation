@@ -824,13 +824,15 @@ app.get("/reviewer/:reviewerId/applicants", async (req, res) => {
     if (!assignments || assignments.length === 0) return res.json([]);
 
     const appIds = assignments.map((a) => a.application_id);
-    const { data: apps, error } = await db
+    // Use service role so RLS never blocks reading personal_statement_input (contains portfolio URL)
+    const { data: apps, error } = await supabase
       .from("applications")
       .select("*")
       .in("id", appIds);
 
     if (error) throw error;
 
+    // Pass user-scoped db for reviewer_evaluations (RLS scopes them to this reviewer's rows)
     const applicants = await Promise.all((apps || []).map((a) => toApplicantShape(a, db)));
     res.json(applicants);
   } catch (err) {
