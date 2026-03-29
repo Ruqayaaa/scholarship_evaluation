@@ -114,6 +114,15 @@ function normalizePsScore(score) {
 /**
  * Recalculate resume overall_score from criteria in case model set it to 0.
  */
+const RESUME_LABELS = {
+  academic_achievement:           "Academic Achievement",
+  leadership_and_extracurriculars:"Leadership & Extracurriculars",
+  community_service:              "Community Service",
+  research_and_work_experience:   "Research & Work Experience",
+  skills_and_certifications:      "Skills & Certifications",
+  awards_and_recognition:         "Awards & Recognition",
+};
+
 function normalizeResumeScore(score) {
   if (!score || typeof score !== "object") return score;
   const flat = { ...score };
@@ -121,9 +130,18 @@ function normalizeResumeScore(score) {
   const total = RESUME_KEYS.reduce((sum, k) => sum + (Number(flat[k]) || 0), 0);
   if (total > 0) flat.overall_score = total;
 
-  // Ensure strengths/improvements are always arrays
-  if (!Array.isArray(flat.strengths)) flat.strengths = [];
-  if (!Array.isArray(flat.improvements)) flat.improvements = [];
+  // Generate strengths/improvements from criterion scores if the model didn't produce them.
+  // (Fine-tuned models output a fixed schema and won't add new fields from prompt changes.)
+  if (!Array.isArray(flat.strengths) || flat.strengths.length === 0) {
+    flat.strengths = RESUME_KEYS
+      .filter((k) => (Number(flat[k]) || 0) >= 21)
+      .map((k) => `${RESUME_LABELS[k]} (${flat[k]}/30)`);
+  }
+  if (!Array.isArray(flat.improvements) || flat.improvements.length === 0) {
+    flat.improvements = RESUME_KEYS
+      .filter((k) => (Number(flat[k]) || 0) <= 10 && (Number(flat[k]) || 0) > 0)
+      .map((k) => `${RESUME_LABELS[k]} needs strengthening (${flat[k]}/30)`);
+  }
 
   return flat;
 }
@@ -296,22 +314,45 @@ app.post("/applicants/submit/resume", authenticate, async (req, res) => {
   }
 });
 
-// ── Applicant: submit portfolio (saves URL into personal_statement_input JSONB) ─
+// ── Applicant: submit portfolio (uploads file via service role, saves URL in JSONB) ─
+// Accepts either:
+//   { applicantId, portfolioUrl, portfolioName }  — legacy: URL already uploaded by client
+//   { applicantId, fileData (base64), fileName, mimeType } — new: backend handles storage upload
 app.post("/applicants/submit/portfolio", authenticate, async (req, res) => {
   try {
-    const { applicantId, portfolioUrl, portfolioName } = req.body;
-    if (!applicantId || !portfolioUrl)
-      return res.status(400).json({ error: "applicantId and portfolioUrl required" });
+    const { applicantId, portfolioUrl: clientUrl, portfolioName: clientName,
+            fileData, fileName, mimeType } = req.body;
+    if (!applicantId) return res.status(400).json({ error: "applicantId required" });
+    if (!clientUrl && !fileData) return res.status(400).json({ error: "fileData or portfolioUrl required" });
 
-    const db = reqDb(req);
+    let finalUrl = clientUrl || null;
+    let finalName = clientName || fileName || "Portfolio";
+
+    // If file bytes sent, upload to Supabase Storage using service role
+    if (fileData && fileName) {
+      const buffer = Buffer.from(fileData, "base64");
+      const path = `${applicantId}/${Date.now()}_${fileName}`;
+
+      // Ensure bucket exists (service role can create it)
+      await supabase.storage.createBucket("portfolios", { public: true }).catch(() => {});
+
+      const { error: uploadErr } = await supabase.storage
+        .from("portfolios")
+        .upload(path, buffer, { contentType: mimeType || "application/octet-stream", upsert: true });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from("portfolios").getPublicUrl(path);
+      finalUrl = urlData.publicUrl;
+      finalName = fileName;
+    }
 
     // Find the active cycle
     const { data: activeCycle } = await supabase
       .from("cycles").select("id").eq("status", "active")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
-    // Find the applicant's current application
-    let q = db.from("applications").select("id, personal_statement_input")
+    // Find the applicant's current application (service role bypasses RLS)
+    let q = supabase.from("applications").select("id, personal_statement_input")
       .eq("applicant_id", applicantId);
     q = activeCycle?.id ? q.eq("cycle_id", activeCycle.id) : q.is("cycle_id", null);
     const { data: existing, error: findErr } = await q.maybeSingle();
@@ -321,17 +362,17 @@ app.post("/applicants/submit/portfolio", authenticate, async (req, res) => {
     // Merge portfolio info into the existing JSONB without touching other fields
     const updatedInput = {
       ...(existing.personal_statement_input || {}),
-      _portfolio_url:  portfolioUrl,
-      _portfolio_name: portfolioName || "Portfolio",
+      _portfolio_url:  finalUrl,
+      _portfolio_name: finalName,
     };
 
-    const { error: updateErr } = await db
+    const { error: updateErr } = await supabase
       .from("applications")
       .update({ personal_statement_input: updatedInput, updated_at: new Date().toISOString() })
       .eq("id", existing.id);
     if (updateErr) throw updateErr;
 
-    res.json({ ok: true });
+    res.json({ ok: true, portfolioUrl: finalUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -843,13 +884,13 @@ app.patch("/reviewer/:reviewerId/applications/:appId/evaluation", async (req, re
 
 // ── Admin: schedule interview ─────────────────────────────────────────────────
 // Stores interview data inside personal_statement_input JSONB (no schema change needed)
+// Uses service role (supabase) — reqDb(req) is user-scoped and RLS blocks admin reads.
 app.patch("/admin/applicants/:id/interview", async (req, res) => {
   try {
     const { interviewAt, message } = req.body;
-    const db = reqDb(req);
 
     // Read existing input so we can merge without overwriting applicant data
-    const { data: existing, error: fetchErr } = await db
+    const { data: existing, error: fetchErr } = await supabase
       .from("applications")
       .select("personal_statement_input")
       .eq("id", req.params.id)
@@ -862,7 +903,7 @@ app.patch("/admin/applicants/:id/interview", async (req, res) => {
       _interview_message: message || "",
     };
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("applications")
       .update({
         personal_statement_input: updatedInput,
@@ -874,7 +915,7 @@ app.patch("/admin/applicants/:id/interview", async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json({ ok: true, applicant: await toApplicantShape(data, db) });
+    res.json({ ok: true, applicant: await toApplicantShape(data) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
