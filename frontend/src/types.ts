@@ -21,6 +21,8 @@ export interface ResumeScores {
   awards_and_recognition: number;
   overall_score: number;
   justification?: string;
+  strengths: string[];
+  improvements: string[];
 }
 
 export interface Applicant {

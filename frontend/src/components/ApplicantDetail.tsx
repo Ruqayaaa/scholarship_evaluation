@@ -2,13 +2,6 @@ import { useEffect, useState } from "react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { adminFetch } from "../lib/api";
 
 type Props = {
@@ -87,7 +80,7 @@ const DECISION_COLORS: Record<string, { bg: string; color: string }> = {
 };
 
 type StepKey = "application" | "scores" | "reviewer" | "decision" | "history";
-const STEP_KEYS: StepKey[] = ["application", "scores", "reviewer", "decision", "history"];
+const STEP_KEYS: StepKey[] = ["scores", "application", "reviewer", "decision", "history"];
 
 export function ApplicantDetail({ applicantId, onBack }: Props) {
   const [applicant, setApplicant] = useState<BackendApplicant | null>(null);
@@ -96,7 +89,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeStep, setActiveStep] = useState<StepKey>("application");
+  const [activeStep, setActiveStep] = useState<StepKey>("scores");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const [decision, setDecision] = useState("Pending");
@@ -243,8 +236,8 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
   stepStatus[activeStep] = "active";
 
   const stepLabels: Record<StepKey, string> = {
-    application: "Assignment",
     scores:      "AI Scores",
+    application: "Assignment",
     reviewer:    "Reviewer",
     decision:    "Decision",
     history:     "History",
@@ -363,18 +356,18 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
             )}
             {unassignedReviewers.length > 0 ? (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Select value={selectedReviewerId} onValueChange={setSelectedReviewerId}>
-                  <SelectTrigger className="admin-select">
-                    <SelectValue placeholder="Select a reviewer…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unassignedReviewers.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name} — {r.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={selectedReviewerId}
+                  onChange={(e) => setSelectedReviewerId(e.target.value)}
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, minWidth: 260 }}
+                >
+                  <option value="">Select a reviewer…</option>
+                  {unassignedReviewers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} — {r.email}
+                    </option>
+                  ))}
+                </select>
                 <Button className="admin-primary-btn" onClick={assignReviewer} disabled={!selectedReviewerId || assigning}>
                   {assigning ? "Assigning…" : "Assign"}
                 </Button>
@@ -465,6 +458,22 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                 </div>
                 <div className="llm-overall">
                   <div className="llm-overall-title">Overall: {(re.score.overall_score as number) ?? "—"} / 180</div>
+                  {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Strengths</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                        {(re.score.strengths as string[]).map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray(re.score.improvements) && (re.score.improvements as string[]).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Areas to Improve</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                        {(re.score.improvements as string[]).map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
                   {re.score.justification && (
                     <div className="llm-overall-text" style={{ marginTop: 8 }}>{re.score.justification as string}</div>
                   )}

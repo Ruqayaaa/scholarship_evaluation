@@ -23,9 +23,9 @@ type ScoredApplicant = {
 export function toLlmScore(a: ScoredApplicant): number | null {
   const scores: number[] = [];
   if (a.personalStatement?.score?.overall_score != null)
-    scores.push(((a.personalStatement.score.overall_score as number) / 100) * 5);
+    scores.push((a.personalStatement.score.overall_score as number));
   if (a.resume?.score?.overall_score != null)
-    scores.push(((a.resume.score.overall_score as number) / 180) * 5);
+    scores.push(((a.resume.score.overall_score as number) / 180) * 100);
   if (!scores.length) return null;
-  return scores.reduce((x, y) => x + y, 0) / scores.length;
+  return Math.round(scores.reduce((x, y) => x + y, 0) / scores.length);
 }

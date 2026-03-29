@@ -187,8 +187,11 @@ Each criterion is scored 0-30 (0-10: weak, 11-20: adequate, 21-30: strong).
 Return ONLY valid JSON with exactly these keys:
   academic_achievement, leadership_and_extracurriculars, community_service,
   research_and_work_experience, skills_and_certifications, awards_and_recognition,
-  overall_score, justification
-overall_score MUST equal the sum of the six criteria scores.
+  overall_score, justification, strengths, improvements
+- overall_score MUST equal the sum of the six criteria scores.
+- strengths: array of 2-4 brief strings highlighting what the applicant does well.
+- improvements: array of 2-4 brief strings noting areas where the resume is weak.
+- justification: overall paragraph explaining the scoring.
 Do NOT include any text outside the JSON object."""
 
 _RESUME_USER = """Evaluate the following scholarship application resume using the rubric below.
@@ -208,7 +211,8 @@ RESUME:
 {resume}
 >>>
 
-Return valid JSON only. overall_score must equal the sum of all six criteria scores."""
+Return valid JSON only. overall_score must equal the sum of all six criteria scores.
+Include strengths (array), improvements (array), and justification (string)."""
 
 
 def score_resume(resume_text: str) -> dict:
@@ -226,4 +230,11 @@ def score_resume(resume_text: str) -> dict:
     result = _extract_json(raw)
     total = sum(int(result.get(k, 0)) for k in RESUME_CRITERIA)
     result["overall_score"] = total
+
+    # Ensure strengths/improvements are always lists
+    if not isinstance(result.get("strengths"), list):
+        result["strengths"] = []
+    if not isinstance(result.get("improvements"), list):
+        result["improvements"] = []
+
     return result

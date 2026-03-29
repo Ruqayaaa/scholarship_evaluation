@@ -121,6 +121,10 @@ function normalizeResumeScore(score) {
   const total = RESUME_KEYS.reduce((sum, k) => sum + (Number(flat[k]) || 0), 0);
   if (total > 0) flat.overall_score = total;
 
+  // Ensure strengths/improvements are always arrays
+  if (!Array.isArray(flat.strengths)) flat.strengths = [];
+  if (!Array.isArray(flat.improvements)) flat.improvements = [];
+
   return flat;
 }
 

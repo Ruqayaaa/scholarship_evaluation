@@ -126,7 +126,7 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
                   <th>Applicant</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th className="admin-td--num">AI Score (0–5)</th>
+                  <th className="admin-td--num">AI Score (/100)</th>
                   <th className="admin-td--center">Reviewers Assigned</th>
                   <th className="admin-td--right">Action</th>
                 </tr>

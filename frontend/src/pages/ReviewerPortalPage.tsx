@@ -79,6 +79,8 @@ function toApplicant(a: BackendApplicant): Applicant {
     : undefined;
 
   // Per-criterion resume scores (0–30 each, max 180)
+  const resumeStrengths = Array.isArray(reScore?.strengths) ? (reScore!.strengths as string[]) : [];
+  const resumeImprovements = Array.isArray(reScore?.improvements) ? (reScore!.improvements as string[]) : [];
   const resumeScores: ResumeScores | undefined = reScore
     ? {
         academic_achievement: (reScore.academic_achievement as number) || 0,
@@ -89,6 +91,8 @@ function toApplicant(a: BackendApplicant): Applicant {
         awards_and_recognition: (reScore.awards_and_recognition as number) || 0,
         overall_score: (reScore.overall_score as number) || 0,
         justification: (reScore.justification as string) || "",
+        strengths: resumeStrengths,
+        improvements: resumeImprovements,
       }
     : undefined;
 

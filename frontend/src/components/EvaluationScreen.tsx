@@ -377,6 +377,22 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                       );
                     })}
                   </div>
+                  {(applicant.resumeScores.strengths.length > 0 || applicant.resumeScores.improvements.length > 0) && (
+                    <div className="reviewer-grid-2" style={{ marginTop: 12 }}>
+                      {applicant.resumeScores.strengths.length > 0 && (
+                        <div className="reviewer-listbox">
+                          <div className="reviewer-listbox-title">Strengths</div>
+                          <ul className="reviewer-ul">{applicant.resumeScores.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                        </div>
+                      )}
+                      {applicant.resumeScores.improvements.length > 0 && (
+                        <div className="reviewer-listbox">
+                          <div className="reviewer-listbox-title">Areas to Improve</div>
+                          <ul className="reviewer-ul">{applicant.resumeScores.improvements.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {applicant.resumeScores.justification && (
                     <div className="reviewer-ai-card" style={{ marginTop: 10 }}>
                       <div className="reviewer-ai-card-title">Justification</div>

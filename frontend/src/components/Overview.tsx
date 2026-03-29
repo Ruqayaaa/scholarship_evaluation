@@ -94,7 +94,7 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                   <th>Applicant</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th>AI Score (0–5)</th>
+                  <th>AI Score (/100)</th>
                 </tr>
               </thead>
               <tbody>
