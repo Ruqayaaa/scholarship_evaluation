@@ -66,7 +66,7 @@ async function authenticate(req, res, next) {
 
 //  Score normalizers 
 
-/**
+
 const PS_KEYS = [
   "interests_and_values",
   "academic_commitment",
@@ -83,7 +83,7 @@ const RESUME_KEYS = [
   "skills_and_certifications",
   "awards_and_recognition",
 ];
-*/
+
 
 /**
  * The model wraps criterion scores under a "criteria" key and sets overall_score=0.
