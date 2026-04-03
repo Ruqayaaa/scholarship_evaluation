@@ -114,39 +114,6 @@ function normalizePsScore(score) {
   return flat;
 }
 
-/**
- * Recalculate resume overall_score from criteria in case model set it to 0.
- */
-
-/** 
-const RESUME_CRITERION_FEEDBACK = {
-  academic_achievement: {
-    strength:    "Strong academic record with notable grades and scholarly achievements",
-    improvement: "Academic record shows room for improvement in grades or academic engagement",
-  },
-  leadership_and_extracurriculars: {
-    strength:    "Demonstrates meaningful leadership roles and active extracurricular involvement",
-    improvement: "Limited evidence of leadership experience or extracurricular participation",
-  },
-  community_service: {
-    strength:    "Shows consistent commitment to community service and volunteer work",
-    improvement: "Community involvement is minimal and could be significantly expanded",
-  },
-  research_and_work_experience: {
-    strength:    "Highlights relevant research projects or professional work experience",
-    improvement: "Work or research experience is limited — more practical experience is recommended",
-  },
-  skills_and_certifications: {
-    strength:    "Presents a well-rounded skill set supported by relevant certifications",
-    improvement: "Skills and certifications section lacks depth or relevant qualifications",
-  },
-  awards_and_recognition: {
-    strength:    "Recognized for outstanding achievements through awards and honors",
-    improvement: "Few awards or recognitions listed — stronger accomplishments would strengthen the application",
-  },
-};
-*/
-
 function normalizeResumeScore(score) {
   if (!score || typeof score !== "object") return score;
   const flat = { ...score };
@@ -154,14 +121,8 @@ function normalizeResumeScore(score) {
   const total = RESUME_KEYS.reduce((sum, k) => sum + (Number(flat[k]) || 0), 0);
   if (total > 0) flat.overall_score = total;
 
-  // Always regenerate qualitative feedback so it explains why, not just restates the score.
-  flat.strengths = RESUME_KEYS
-    .filter((k) => (Number(flat[k]) || 0) >= 21)
-    .map((k) => RESUME_CRITERION_FEEDBACK[k].strength);
-
-  flat.improvements = RESUME_KEYS
-    .filter((k) => (Number(flat[k]) || 0) <= 10 && (Number(flat[k]) || 0) > 0)
-    .map((k) => RESUME_CRITERION_FEEDBACK[k].improvement);
+  if (!Array.isArray(flat.strengths)) flat.strengths = [];
+  if (!Array.isArray(flat.improvements)) flat.improvements = [];
 
   return flat;
 }
