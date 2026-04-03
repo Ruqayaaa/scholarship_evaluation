@@ -7,23 +7,22 @@ import "dotenv/config";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ── Supabase clients ──────────────────────────────────────────────────────────
 
-// Admin client: service role, bypasses RLS — used for admin/reviewer operations
+//Supabase 
+//Admin
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// User-scoped client: uses the caller's JWT so RLS policies are satisfied.
-// Used for applicant submit operations where auth.uid() must match applicant_id.
+//normal user - can only see what they have access to 
 function userClient(token) {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 }
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+//  Middleware - CORS (which websites can use backend)
 const corsOptions = {
   origin: (origin, callback) => {
     const allowed = [
@@ -49,7 +48,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-// ── Auth middleware ───────────────────────────────────────────────────────────
+// Middleware - authenticate users
 async function authenticate(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No token provided" });
@@ -65,8 +64,9 @@ async function authenticate(req, res, next) {
   next();
 }
 
-// ── Score normalizers ─────────────────────────────────────────────────────────
+//  Score normalizers 
 
+/**
 const PS_KEYS = [
   "interests_and_values",
   "academic_commitment",
@@ -83,11 +83,14 @@ const RESUME_KEYS = [
   "skills_and_certifications",
   "awards_and_recognition",
 ];
+*/
 
 /**
  * The model wraps criterion scores under a "criteria" key and sets overall_score=0.
  * Flatten to top level and recalculate overall_score from the actual criteria values.
  */
+
+
 function normalizePsScore(score) {
   if (!score || typeof score !== "object") return score;
   let flat = { ...score };
@@ -105,8 +108,8 @@ function normalizePsScore(score) {
   }
 
   // Ensure strengths/improvements are always arrays
-  if (!Array.isArray(flat.strengths)) flat.strengths = [];
-  if (!Array.isArray(flat.improvements)) flat.improvements = [];
+  //if (!Array.isArray(flat.strengths)) flat.strengths = [];
+  //if (!Array.isArray(flat.improvements)) flat.improvements = [];
 
   return flat;
 }
@@ -114,6 +117,8 @@ function normalizePsScore(score) {
 /**
  * Recalculate resume overall_score from criteria in case model set it to 0.
  */
+
+/** 
 const RESUME_CRITERION_FEEDBACK = {
   academic_achievement: {
     strength:    "Strong academic record with notable grades and scholarly achievements",
@@ -140,6 +145,7 @@ const RESUME_CRITERION_FEEDBACK = {
     improvement: "Few awards or recognitions listed — stronger accomplishments would strengthen the application",
   },
 };
+*/
 
 function normalizeResumeScore(score) {
   if (!score || typeof score !== "object") return score;
@@ -160,16 +166,17 @@ function normalizeResumeScore(score) {
   return flat;
 }
 
-// ── Helper: convert DB application row → frontend BackendApplicant shape ──────
+
 // Pass the caller's scoped db client so RLS is satisfied for every query.
 async function toApplicantShape(app, db = supabase) {
+  // get data from multiple tables in parallel (applicant -> info -> reviewer -> evaluation)
   const [{ data: assignments }, { data: profile }, { data: evaluations }] = await Promise.all([
     db.from("reviewer_assignments").select("reviewer_id").eq("application_id", app.id),
     db.from("profiles").select("name").eq("id", app.applicant_id).single(),
     db.from("reviewer_evaluations").select("*").eq("application_id", app.id),
   ]);
 
-  // Extract metadata stored inside personal_statement_input JSONB
+  // extract metadata stored inside personal_statement_input JSONB
   const psInput = app.personal_statement_input || {};
   const portfolioUrl    = psInput._portfolio_url    || null;
   const portfolioName   = psInput._portfolio_name   || null;
@@ -211,7 +218,7 @@ async function toApplicantShape(app, db = supabase) {
   };
 }
 
-// ── CSV helper ────────────────────────────────────────────────────────────────
+// csv cleaning and combining for cycles 
 function toCSV(headers, rows) {
   const esc = (v) => {
     const s = String(v ?? "");
@@ -220,13 +227,13 @@ function toCSV(headers, rows) {
   return [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
 }
 
-// ── Helper: get a db client scoped to the caller's token ─────────────────────
+// checks if user is logged in 
 function reqDb(req) {
   const token = req.headers.authorization?.split(" ")[1];
   return token ? userClient(token) : supabase;
 }
 
-// ── Helper: upsert an application for applicantId in the active cycle ─────────
+// to insert/update application when submitting personal statement or resume, ensuring one active application per cycle per applicant
 async function upsertApplication(db, applicantId, fields) {
   const { data: activeCycle } = await supabase
     .from("cycles").select("id").eq("status", "active")
@@ -253,21 +260,21 @@ async function upsertApplication(db, applicantId, fields) {
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
-});
+//app.get("/health", (_req, res) => {
+  //res.json({ ok: true });
+//});
 
 // ── Original scoring endpoint (unchanged) ─────────────────────────────────────
-app.post("/score/personal-statement", (req, res) => {
-  res.json({
-    success: true,
-    total_score: 8,
-    message: "POST route is working",
-    received: req.body,
-  });
-});
+//app.post("/score/personal-statement", (req, res) => {
+  //res.json({
+    //success: true,
+    //total_score: 8,
+    //message: "POST route is working",
+    //received: req.body,
+  //});
+//});
 
-// ── Applicant: get own application ───────────────────────────────────────────
+//  Applicant: get own application ──────────────────────────────────────────
 app.get("/applicants/:applicantId/application", authenticate, async (req, res) => {
   try {
     // Find the active cycle — if none exists, applicant can't have a current application
@@ -293,7 +300,7 @@ app.get("/applicants/:applicantId/application", authenticate, async (req, res) =
   }
 });
 
-// ── Applicant: submit personal statement ─────────────────────────────────────
+//  Applicant: submit personal statement 
 app.post("/applicants/submit/personal-statement", authenticate, async (req, res) => {
   try {
     const { applicantId, input, score, name } = req.body;
@@ -311,7 +318,7 @@ app.post("/applicants/submit/personal-statement", authenticate, async (req, res)
   }
 });
 
-// ── Applicant: submit resume ──────────────────────────────────────────────────
+//  Applicant: submit resume 
 app.post("/applicants/submit/resume", authenticate, async (req, res) => {
   try {
     const { applicantId, input, score } = req.body;
@@ -392,7 +399,7 @@ app.post("/applicants/submit/portfolio", authenticate, async (req, res) => {
   }
 });
 
-// ── Cycles: list ─────────────────────────────────────────────────────────────
+//  Cycles: list 
 app.get("/admin/cycles", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -407,7 +414,7 @@ app.get("/admin/cycles", async (req, res) => {
   }
 });
 
-// ── Cycles: create ────────────────────────────────────────────────────────────
+//  Cycles: create 
 app.post("/admin/cycles", async (req, res) => {
   try {
     const { name } = req.body;
@@ -425,7 +432,7 @@ app.post("/admin/cycles", async (req, res) => {
   }
 });
 
-// ── Cycles: end/archive ───────────────────────────────────────────────────────
+//  Cycles: end/archive 
 app.patch("/admin/cycles/:id/end", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -442,7 +449,7 @@ app.patch("/admin/cycles/:id/end", async (req, res) => {
   }
 });
 
-// ── Cycles: download ZIP (applications.csv + scores.csv) ─────────────────────
+//  Cycles: download ZIP (applications.csv + scores.csv) 
 app.get("/admin/cycles/:id/download", async (req, res) => {
   try {
     const { data: cycle, error: cycleErr } = await supabase
@@ -554,7 +561,7 @@ app.get("/admin/cycles/:id/download", async (req, res) => {
   }
 });
 
-// ── Admin: list all applicants ────────────────────────────────────────────────
+//  Admin: list all applicants 
 app.get("/admin/applicants", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -586,7 +593,7 @@ app.get("/admin/applicants", async (req, res) => {
   }
 });
 
-// ── Admin: applicant history across cycles ────────────────────────────────────
+//  Admin: applicant history across cycles 
 app.get("/admin/history/:applicantUserId", async (req, res) => {
   try {
     const { data: apps, error } = await supabase
@@ -627,7 +634,7 @@ app.get("/admin/history/:applicantUserId", async (req, res) => {
   }
 });
 
-// ── Admin: get single applicant ───────────────────────────────────────────────
+//  Admin: get single applicant 
 app.get("/admin/applicants/:id", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -646,7 +653,7 @@ app.get("/admin/applicants/:id", async (req, res) => {
   }
 });
 
-// ── Admin: assign reviewer ────────────────────────────────────────────────────
+//  Admin: assign reviewer 
 app.patch("/admin/applicants/:id/assign", async (req, res) => {
   try {
     const { reviewerId } = req.body;
@@ -676,7 +683,7 @@ app.patch("/admin/applicants/:id/assign", async (req, res) => {
   }
 });
 
-// ── Admin: unassign reviewer ──────────────────────────────────────────────────
+//  Admin: unassign reviewer 
 app.patch("/admin/applicants/:id/unassign", async (req, res) => {
   try {
     const { reviewerId } = req.body;
@@ -713,7 +720,7 @@ app.patch("/admin/applicants/:id/unassign", async (req, res) => {
   }
 });
 
-// ── Admin: stats ──────────────────────────────────────────────────────────────
+//  Admin: stats 
 app.get("/admin/stats", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -738,7 +745,7 @@ app.get("/admin/stats", async (req, res) => {
   }
 });
 
-// ── Reviewers: list ───────────────────────────────────────────────────────────
+//  Reviewers: list 
 app.get("/reviewers", async (_req, res) => {
   try {
     const { data: profiles } = await supabase
@@ -764,7 +771,7 @@ app.get("/reviewers", async (_req, res) => {
   }
 });
 
-// ── Reviewers: add (creates account directly with password) ──────────────────
+//  Reviewers: add (creates account directly with password) 
 app.post("/reviewers", async (req, res) => {
   try {
     const { name, email, password } = req.body;
