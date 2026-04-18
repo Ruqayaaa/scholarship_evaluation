@@ -261,7 +261,56 @@ app.get("/applicants/:applicantId/application", authenticate, async (req, res) =
   }
 });
 
-//  Applicant: submit personal statement 
+// ── Applicant: save draft ─────────────────────────────────────────────────────
+// Stores serialisable form state under personal_statement_input._draft so no
+// schema change is needed. Status is set to "Draft" and never overwrites a
+// row that has already been submitted.
+app.patch("/applicants/:applicantId/draft", authenticate, async (req, res) => {
+  try {
+    const { draftData } = req.body;
+    const { applicantId } = req.params;
+    if (!applicantId) return res.status(400).json({ error: "applicantId required" });
+
+    const db = reqDb(req);
+
+    // Resolve active cycle
+    const { data: activeCycle } = await supabase
+      .from("cycles").select("id").eq("status", "active")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const cycleId = activeCycle?.id || null;
+
+    // Find existing row for this applicant + cycle
+    let q = db.from("applications").select("id, status").eq("applicant_id", applicantId);
+    q = cycleId ? q.eq("cycle_id", cycleId) : q.is("cycle_id", null);
+    const { data: existing } = await q.maybeSingle();
+
+    // Never overwrite a row that has already been submitted / reviewed
+    if (existing?.status && existing.status !== "Draft") {
+      return res.json({ ok: true, skipped: true });
+    }
+
+    const fields = {
+      personal_statement_input: { _draft: draftData },
+      status: "Draft",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existing) {
+      const { error } = await db.from("applications").update(fields).eq("id", existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await db.from("applications")
+        .insert({ applicant_id: applicantId, cycle_id: cycleId, ...fields });
+      if (error) throw error;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//  Applicant: submit personal statement
 app.post("/applicants/submit/personal-statement", authenticate, async (req, res) => {
   try {
     const { applicantId, input, score, name } = req.body;

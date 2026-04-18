@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Step1PersonalInfo } from "../components/Step1PersonalInfo";
 import { Step2PersonalStatement } from "../components/Step2PersonalStatement";
 import { Step3Resume } from "../components/Step3Resume";
@@ -11,8 +11,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { NODE_API } from "../lib/api";
 
-const DRAFT_KEY = "applicationDraft";
-
 const DECISION_STYLE: Record<string, { bg: string; border: string; color: string }> = {
   Accepted:   { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)", color: "#166534" },
   Rejected:   { bg: "rgba(239,68,68,0.08)",  border: "rgba(239,68,68,0.25)",  color: "#991b1b" },
@@ -20,12 +18,6 @@ const DECISION_STYLE: Record<string, { bg: string; border: string; color: string
 };
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-
-const BLANK_RESUME_EDUCATION   = () => [{ id: uid(), institution: "", degree: "", startYear: "", endYear: "", gpa: "" }];
-const BLANK_RESUME_EXPERIENCE  = () => [{ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: "" }];
-const BLANK_RESUME_AWARDS      = () => [{ id: uid(), name: "", year: "", description: "" }];
-const BLANK_RESUME_COMMUNITY   = () => [{ id: uid(), organization: "", role: "", startDate: "", endDate: "", description: "" }];
-const BLANK_RESUME_LEADERSHIP  = () => [{ id: uid(), role: "", organization: "", startDate: "", endDate: "", description: "" }];
 
 function buildDefaultAppData(): ApplicationData {
   return {
@@ -48,12 +40,12 @@ function buildDefaultAppData(): ApplicationData {
     },
     resume: {
       uploadedFile: [],
-      education:   BLANK_RESUME_EDUCATION(),
-      experience:  BLANK_RESUME_EXPERIENCE(),
-      skills:      [],
-      awards:      BLANK_RESUME_AWARDS(),
-      community:   BLANK_RESUME_COMMUNITY(),
-      leadership:  BLANK_RESUME_LEADERSHIP(),
+      education:  [{ id: uid(), institution: "", degree: "", startYear: "", endYear: "", gpa: "" }],
+      experience: [{ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: "" }],
+      skills:     [],
+      awards:     [{ id: uid(), name: "", year: "", description: "" }],
+      community:  [{ id: uid(), organization: "", role: "", startDate: "", endDate: "", description: "" }],
+      leadership: [{ id: uid(), role: "", organization: "", startDate: "", endDate: "", description: "" }],
     },
     portfolio: { links: [], files: [] },
     documents: {
@@ -66,60 +58,48 @@ function buildDefaultAppData(): ApplicationData {
   };
 }
 
-function loadDraft(): ApplicationData {
-  const defaults = buildDefaultAppData();
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return defaults;
-    const saved = JSON.parse(raw);
-    return {
-      personalInfo: { ...defaults.personalInfo, ...(saved.personalInfo ?? {}) },
-      personalStatement: {
-        ...defaults.personalStatement,
-        ...(saved.personalStatement ?? {}),
-        uploadedFile: [],
-      },
-      resume: {
-        uploadedFile: [],
-        education:  saved.resume?.education?.length  ? saved.resume.education  : defaults.resume.education,
-        experience: saved.resume?.experience?.length ? saved.resume.experience : defaults.resume.experience,
-        skills:     saved.resume?.skills    ?? [],
-        awards:     saved.resume?.awards?.length     ? saved.resume.awards     : defaults.resume.awards,
-        community:  saved.resume?.community?.length  ? saved.resume.community  : defaults.resume.community,
-        leadership: saved.resume?.leadership?.length ? saved.resume.leadership : defaults.resume.leadership,
-      },
-      portfolio:  defaults.portfolio,
-      documents:  defaults.documents,
-    };
-  } catch {
-    return defaults;
-  }
+/** Restore saved draft data onto a default ApplicationData skeleton. */
+function applyDraft(saved: any, base: ApplicationData): ApplicationData {
+  if (!saved || typeof saved !== "object") return base;
+  return {
+    ...base,
+    personalInfo: { ...base.personalInfo, ...(saved.personalInfo ?? {}) },
+    personalStatement: {
+      ...base.personalStatement,
+      ...(saved.personalStatement ?? {}),
+      uploadedFile: [],
+    },
+    resume: {
+      ...base.resume,
+      education:  saved.resume?.education?.length  ? saved.resume.education  : base.resume.education,
+      experience: saved.resume?.experience?.length ? saved.resume.experience : base.resume.experience,
+      skills:     saved.resume?.skills             ?? base.resume.skills,
+      awards:     saved.resume?.awards?.length     ? saved.resume.awards     : base.resume.awards,
+      community:  saved.resume?.community?.length  ? saved.resume.community  : base.resume.community,
+      leadership: saved.resume?.leadership?.length ? saved.resume.leadership : base.resume.leadership,
+    },
+  };
 }
 
-function persistDraft(data: ApplicationData) {
-  try {
-    const serializable = {
-      personalInfo: data.personalInfo,
-      personalStatement: {
-        valuesGoals: data.personalStatement.valuesGoals,
-        whyMajor:    data.personalStatement.whyMajor,
-        interests:   data.personalStatement.interests,
-        summary:     data.personalStatement.summary,
-      },
-      resume: {
-        education:  data.resume.education,
-        experience: data.resume.experience,
-        skills:     data.resume.skills,
-        awards:     data.resume.awards,
-        community:  data.resume.community,
-        leadership: data.resume.leadership,
-      },
-    };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(serializable));
-    return true;
-  } catch {
-    return false;
-  }
+/** Extract the serialisable (non-File) parts of the form. */
+function serializeDraft(data: ApplicationData) {
+  return {
+    personalInfo: data.personalInfo,
+    personalStatement: {
+      valuesGoals: data.personalStatement.valuesGoals,
+      whyMajor:    data.personalStatement.whyMajor,
+      interests:   data.personalStatement.interests,
+      summary:     data.personalStatement.summary,
+    },
+    resume: {
+      education:  data.resume.education,
+      experience: data.resume.experience,
+      skills:     data.resume.skills,
+      awards:     data.resume.awards,
+      community:  data.resume.community,
+      leadership: data.resume.leadership,
+    },
+  };
 }
 
 export default function ApplicantPortalPage() {
@@ -131,10 +111,22 @@ export default function ApplicantPortalPage() {
   const [interviewMessage, setInterviewMessage] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
 
+  const [appData, setAppData] = useState<ApplicationData>(buildDefaultAppData);
+
+  // Auto-save only after the initial load completes (avoids saving blanks on mount)
+  const autoSaveEnabled = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const navigate = useNavigate();
+
+  // ── On mount: fetch application status and restore draft if present ──────────
   useEffect(() => {
     async function checkStatus() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user) {
+        autoSaveEnabled.current = true;
+        return;
+      }
       try {
         const res = await fetch(`${NODE_API}/applicants/${session.user.id}/application`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -142,48 +134,75 @@ export default function ApplicantPortalPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (!data) return;
-        if (data.status) {
+
+        if (data.status === "Draft") {
+          // Restore saved draft into the form
+          const savedDraft = data.personalStatement?.input?._draft;
+          if (savedDraft) {
+            setAppData((prev) => applyDraft(savedDraft, prev));
+          }
+        } else if (data.status) {
+          // Any non-Draft status means it has been submitted
           setIsSubmitted(true);
-        }
-        if (data.finalDecision && data.finalDecision !== "Pending") {
-          setFinalDecision(data.finalDecision);
-          if (data.decisionNotes) setDecisionNotes(data.decisionNotes);
-        }
-        if (data.interviewAt) {
-          setInterviewAt(data.interviewAt);
-          if (data.interviewMessage) setInterviewMessage(data.interviewMessage);
+          if (data.finalDecision && data.finalDecision !== "Pending") {
+            setFinalDecision(data.finalDecision);
+            if (data.decisionNotes) setDecisionNotes(data.decisionNotes);
+          }
+          if (data.interviewAt) {
+            setInterviewAt(data.interviewAt);
+            if (data.interviewMessage) setInterviewMessage(data.interviewMessage);
+          }
         }
       } catch {
         // silently fail
+      } finally {
+        // Enable auto-save now that the initial load is done
+        autoSaveEnabled.current = true;
       }
     }
     checkStatus();
   }, []);
 
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    localStorage.removeItem("applicationSubmitted");
-    localStorage.removeItem(DRAFT_KEY);
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
-  };
-
-  const [appData, setAppData] = useState<ApplicationData>(loadDraft);
-
-  // Auto-save to localStorage on every change so navigating away never loses data
+  // ── Debounced auto-save: fires 2 s after any form change ────────────────────
   useEffect(() => {
-    if (!isSubmitted) {
-      persistDraft(appData);
-    }
+    if (!autoSaveEnabled.current || isSubmitted) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveDraftToDb(appData);
+    }, 2000);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [appData, isSubmitted]);
 
-  const handleSaveDraft = () => {
-    const ok = persistDraft(appData);
-    if (ok) {
-      setDraftSaved(true);
-      setTimeout(() => setDraftSaved(false), 2500);
+  // ── API call to persist draft ────────────────────────────────────────────────
+  async function saveDraftToDb(data: ApplicationData) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    try {
+      await fetch(`${NODE_API}/applicants/${session.user.id}/draft`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ draftData: serializeDraft(data) }),
+      });
+    } catch {
+      // silently fail — don't interrupt the user
     }
+  }
+
+  // ── Manual save (shows confirmation banner) ──────────────────────────────────
+  const handleSaveDraft = () => {
+    saveDraftToDb(appData);
+    setDraftSaved(true);
+    setTimeout(() => setDraftSaved(false), 2500);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
   };
 
   return (
@@ -211,9 +230,8 @@ export default function ApplicantPortalPage() {
               fontWeight: 700,
               fontSize: 14,
               boxShadow: "0 4px 20px rgba(22,163,74,0.35)",
-              animation: "fadeIn 0.2s ease",
             }}>
-              Draft saved successfully!
+              Draft saved to your account.
             </div>
           )}
 
@@ -235,15 +253,10 @@ export default function ApplicantPortalPage() {
 
                   {interviewAt && !finalDecision && (
                     <div style={{
-                      padding: "14px 16px",
-                      borderRadius: 10,
-                      background: "rgba(37,99,235,0.06)",
-                      border: "1.5px solid rgba(37,99,235,0.25)",
-                      color: "var(--navy)",
+                      padding: "14px 16px", borderRadius: 10,
+                      background: "rgba(37,99,235,0.06)", border: "1.5px solid rgba(37,99,235,0.25)", color: "var(--navy)",
                     }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
-                        Interview Scheduled
-                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Interview Scheduled</div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>
                         {new Date(interviewAt).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
                       </div>
@@ -255,8 +268,7 @@ export default function ApplicantPortalPage() {
 
                   {finalDecision ? (
                     <div style={{
-                      padding: "14px 16px",
-                      borderRadius: 10,
+                      padding: "14px 16px", borderRadius: 10,
                       background: DECISION_STYLE[finalDecision]?.bg ?? "rgba(0,0,0,0.04)",
                       border: `1.5px solid ${DECISION_STYLE[finalDecision]?.border ?? "#e5e7eb"}`,
                       color: DECISION_STYLE[finalDecision]?.color ?? "var(--navy)",
@@ -264,28 +276,20 @@ export default function ApplicantPortalPage() {
                       <div style={{ fontWeight: 800, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: decisionNotes ? 6 : 0 }}>
                         Decision: {finalDecision}
                       </div>
-                      {decisionNotes && (
-                        <div style={{ fontSize: 13, lineHeight: 1.6 }}>{decisionNotes}</div>
-                      )}
+                      {decisionNotes && <div style={{ fontSize: 13, lineHeight: 1.6 }}>{decisionNotes}</div>}
                     </div>
                   ) : (
                     <div style={{
-                      padding: "12px 14px",
-                      borderRadius: 10,
-                      background: "rgba(29,161,242,0.08)",
-                      border: "1.5px solid rgba(29,161,242,0.20)",
-                      color: "#1DA1F2",
-                      fontWeight: 700,
-                      fontSize: 13,
+                      padding: "12px 14px", borderRadius: 10,
+                      background: "rgba(29,161,242,0.08)", border: "1.5px solid rgba(29,161,242,0.20)",
+                      color: "#1DA1F2", fontWeight: 700, fontSize: 13,
                     }}>
                       Under review — check back for updates.
                     </div>
                   )}
 
                   <div>
-                    <button type="button" onClick={handleLogout} className="logout-btn">
-                      Log out
-                    </button>
+                    <button type="button" onClick={handleLogout} className="logout-btn">Log out</button>
                   </div>
                 </div>
               ) : (
@@ -298,7 +302,6 @@ export default function ApplicantPortalPage() {
                       onSaveDraft={handleSaveDraft}
                     />
                   )}
-
                   {step === 2 && (
                     <Step2PersonalStatement
                       data={appData.personalStatement}
@@ -308,7 +311,6 @@ export default function ApplicantPortalPage() {
                       onSaveDraft={handleSaveDraft}
                     />
                   )}
-
                   {step === 3 && (
                     <Step3Resume
                       data={appData.resume}
@@ -318,7 +320,6 @@ export default function ApplicantPortalPage() {
                       onSaveDraft={handleSaveDraft}
                     />
                   )}
-
                   {step === 4 && (
                     <Step4Portfolio
                       data={appData.portfolio}
@@ -327,7 +328,6 @@ export default function ApplicantPortalPage() {
                       onNext={() => setStep(5)}
                     />
                   )}
-
                   {step === 5 && (
                     <Step5OtherUploads
                       data={appData.documents}
@@ -336,13 +336,11 @@ export default function ApplicantPortalPage() {
                       onNext={() => setStep(6)}
                     />
                   )}
-
                   {step === 6 && (
                     <Step6Review
                       data={appData}
                       onBack={() => setStep(5)}
                       onSubmitted={() => {
-                        localStorage.removeItem(DRAFT_KEY);
                         setIsSubmitted(true);
                         setStep(6);
                       }}
