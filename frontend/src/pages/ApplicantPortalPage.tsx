@@ -171,6 +171,13 @@ export default function ApplicantPortalPage() {
 
   const [appData, setAppData] = useState<ApplicationData>(loadDraft);
 
+  // Auto-save to localStorage on every change so navigating away never loses data
+  useEffect(() => {
+    if (!isSubmitted) {
+      persistDraft(appData);
+    }
+  }, [appData, isSubmitted]);
+
   const handleSaveDraft = () => {
     const ok = persistDraft(appData);
     if (ok) {

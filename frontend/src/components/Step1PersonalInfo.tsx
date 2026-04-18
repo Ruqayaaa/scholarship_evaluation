@@ -41,15 +41,27 @@ function Field({
   );
 }
 
-function isValidGpa(raw: string): boolean {
+function parseGpaNum(raw: string): { num: number; isPct: boolean } | null {
   const v = raw.trim();
-  if (!v) return false;
-  const withoutPct = v.endsWith("%") ? v.slice(0, -1) : v;
-  const num = parseFloat(withoutPct);
-  if (isNaN(num)) return false;
-  if (v.endsWith("%")) return num >= 0 && num <= 100;
-  if (num > 4.0) return num >= 0 && num <= 100; // treat 4.01–100 as percentage
-  return num >= 0 && num <= 4.0;
+  if (!v) return null;
+  const isPct = v.endsWith("%");
+  const num = parseFloat(isPct ? v.slice(0, -1) : v);
+  if (isNaN(num)) return null;
+  // Auto-detect: > 4.0 without % sign → treat as percentage
+  return { num, isPct: isPct || num > 4.0 };
+}
+
+function isValidGpa(raw: string): boolean {
+  const p = parseGpaNum(raw);
+  if (!p) return false;
+  return p.isPct ? p.num >= 0 && p.num <= 100 : p.num >= 0 && p.num <= 4.0;
+}
+
+// Eligibility: 90% or 3.6/4.0 equivalent
+function isEligibleGpa(raw: string): boolean {
+  const p = parseGpaNum(raw);
+  if (!p) return false;
+  return p.isPct ? p.num >= 90 : p.num >= 3.6;
 }
 
 export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1Props) {
@@ -92,8 +104,9 @@ export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1
   const ieltsNum = parseFloat(data.ieltsScore);
   const ieltsOk = !data.ieltsScore || isNaN(ieltsNum) || ieltsNum >= 6.0;
   const gpaFilled = data.gpa.trim().length > 0;
-  const gpaOk = !gpaFilled || isValidGpa(data.gpa);
-  const canContinue = allFilled && !isNaN(ieltsNum) && ieltsNum >= 6.0 && gpaOk && gpaFilled && isValidGpa(data.gpa);
+  const gpaFormatOk   = !gpaFilled || isValidGpa(data.gpa);
+  const gpaEligible   = !gpaFilled || isEligibleGpa(data.gpa);
+  const canContinue = allFilled && !isNaN(ieltsNum) && ieltsNum >= 6.0 && gpaFilled && isValidGpa(data.gpa) && isEligibleGpa(data.gpa);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -209,11 +222,7 @@ export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1
               <Field
                 id="gpa"
                 label="GPA *"
-                hint={
-                  gpaFilled && !gpaOk
-                    ? undefined
-                    : "Decimal format: 0.0–4.0 (e.g., 3.8) · Percentage format: 0–100 (e.g., 90 or 90%)"
-                }
+                hint="Decimal: 3.6–4.0 · Percentage: 90–100 (e.g., 90 or 90%) · Minimum 90% required"
               >
                 <div className="input-wrap">
                   <input
@@ -222,12 +231,17 @@ export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1
                     placeholder="e.g., 3.8 or 90%"
                     value={data.gpa}
                     onChange={(e) => setField("gpa", e.target.value)}
-                    style={gpaFilled && !gpaOk ? { borderColor: "#ef4444" } : undefined}
+                    style={gpaFilled && (!gpaFormatOk || !gpaEligible) ? { borderColor: "#ef4444" } : undefined}
                   />
                 </div>
-                {gpaFilled && !gpaOk && (
+                {gpaFilled && !gpaFormatOk && (
                   <div style={{ color: "#ef4444", fontSize: 13, marginTop: 4, fontWeight: 600 }}>
-                    Invalid GPA. Use decimal (0.0–4.0, e.g., 3.8) or percentage (0–100, e.g., 90 or 90%).
+                    Invalid GPA format. Use decimal (e.g., 3.8) or percentage (e.g., 90 or 90%).
+                  </div>
+                )}
+                {gpaFilled && gpaFormatOk && !gpaEligible && (
+                  <div style={{ color: "#ef4444", fontSize: 13, marginTop: 4, fontWeight: 600 }}>
+                    GPA does not meet the minimum requirement of 90% (or 3.6/4.0). You must have a GPA of 90% or above to be eligible.
                   </div>
                 )}
               </Field>
@@ -316,8 +330,10 @@ export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1
           title={
             !allFilled
               ? "Please fill all required fields"
-              : !gpaOk
+              : !gpaFormatOk
               ? "Enter a valid GPA (decimal 0–4.0 or percentage 0–100)"
+              : !gpaEligible
+              ? "GPA must be 90% or above (3.6/4.0) to be eligible"
               : !ieltsOk
               ? "IELTS score must be 6.0 or above"
               : undefined

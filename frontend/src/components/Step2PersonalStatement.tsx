@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import Tesseract from "tesseract.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
@@ -113,14 +112,6 @@ async function extractPdfText(file: File, onProgress: (p: number) => void): Prom
   return fullText.trim();
 }
 
-async function extractImageText(file: File, onProgress: (p: number) => void): Promise<string> {
-  const result = await Tesseract.recognize(file, "eng", {
-    logger: (m: any) => {
-      if (m.status === "recognizing text") onProgress(m.progress);
-    },
-  });
-  return result.data.text.trim();
-}
 
 type SectionComponentProps = {
   k: SectionKey;
@@ -196,22 +187,25 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack, onSaveD
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setOcrError("Only PDF files are accepted. Please upload a PDF.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setIsExtracting(true);
     setOcrProgress(0);
     setOcrError("");
     setOcrText("");
     try {
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      const text = isPdf
-        ? await extractPdfText(file, setOcrProgress)
-        : await extractImageText(file, setOcrProgress);
+      const text = await extractPdfText(file, setOcrProgress);
       if (!text) {
-        setOcrError("No text could be extracted. Try a clearer image or a text-based PDF.");
+        setOcrError("No text could be extracted. Make sure the PDF contains selectable text (not a scanned image).");
       } else {
         setOcrText(text);
       }
     } catch {
-      setOcrError("Extraction failed. Please try again with a different file.");
+      setOcrError("Extraction failed. Please try again with a different PDF.");
     } finally {
       setIsExtracting(false);
       setOcrProgress(0);
@@ -292,12 +286,12 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack, onSaveD
 
       {/* OCR Upload Card */}
       <div className="card" style={{ width: "100%" }}>
-        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Upload & Extract Text (OCR)</div>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Upload & Extract Text (PDF only)</div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 14 }}>
-          Have an existing personal statement? Upload an image or PDF — the text will be extracted so you can review and fill the sections below.
+          Have an existing personal statement? Upload a <strong>PDF file</strong> — the text will be extracted so you can review and fill the sections below. Only text-based PDFs are supported.
         </div>
 
-        <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={handleFileSelect} />
+        <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={handleFileSelect} />
 
         <button
           type="button"
@@ -308,7 +302,7 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack, onSaveD
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          {isExtracting ? `Extracting… ${pct}%` : "Upload & Extract Text"}
+          {isExtracting ? `Extracting… ${pct}%` : "Upload PDF & Extract Text"}
         </button>
 
         {isExtracting && (
