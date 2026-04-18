@@ -46,10 +46,9 @@ export type LeadershipItem = {
 export type ApplicationData = {
   personalInfo: {
     fullName: string;
-    email: string;
     dateOfBirth: string;
     country: string;
-    program: string;
+    chosenMajor: string;
     university: string;
     gpa: string;
     graduationYear: string;

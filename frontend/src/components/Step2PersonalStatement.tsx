@@ -16,6 +16,7 @@ interface Step2Props {
   onUpdate: (data: any) => void;
   onNext: () => void;
   onBack: () => void;
+  onSaveDraft: () => void;
 }
 
 type SectionKey = "valuesGoals" | "whyMajor" | "interests" | "summary";
@@ -161,7 +162,7 @@ function Section({ title, example, placeholder, value, isOpen, onToggle, onChang
   );
 }
 
-export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2Props) {
+export function Step2PersonalStatement({ data, onUpdate, onNext, onBack, onSaveDraft }: Step2Props) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     valuesGoals: true,
@@ -189,9 +190,8 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
   const isOverLimit = wordCount > 1000;
   const sectionsFilledCount = [data.valuesGoals, data.whyMajor, data.interests, data.summary]
     .filter((v) => v.trim().length > 0).length;
-  const canContinue = !isOverLimit && sectionsFilledCount >= 2;
+  const canContinue = !isOverLimit && sectionsFilledCount >= 4;
   const toggle = (k: SectionKey) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
-  const handleSaveDraft = () => alert("Draft saved successfully!");
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -255,7 +255,7 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
 
   const PreviewModal = () => (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal" style={{ maxWidth: 860 }}>
+      <div className="modal" style={{ maxWidth: 580, maxHeight: "70vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Personal Statement Preview</div>
           <button type="button" className="ghost-btn" onClick={() => setIsPreviewOpen(false)}>Close</button>
@@ -349,7 +349,7 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
       <div className="card" style={{ width: "100%" }}>
         <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Structure Your Statement</div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 14 }}>
-          Complete all four sections. Your content will be combined and evaluated by AI.
+          All four sections are required. Your content will be combined and evaluated by AI.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -373,9 +373,9 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
             <div style={{ fontWeight: 800, color: isOverLimit ? "#b91c1c" : "var(--muted)" }}>
               Word count: {wordCount} / 1000 {isOverLimit ? "(exceeds limit)" : ""}
             </div>
-            {!isOverLimit && sectionsFilledCount < 2 && (
+            {!isOverLimit && sectionsFilledCount < 4 && (
               <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600, marginTop: 2 }}>
-                Complete at least 2 sections to continue ({sectionsFilledCount}/2 done).
+                All 4 sections are required to continue ({sectionsFilledCount}/4 done).
               </div>
             )}
           </div>
@@ -389,7 +389,7 @@ export function Step2PersonalStatement({ data, onUpdate, onNext, onBack }: Step2
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <button type="button" className="ghost-btn" onClick={onBack}>← Back</button>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
+          <button type="button" className="ghost-btn" onClick={onSaveDraft}>Save Draft</button>
           <button type="button" className="primary-btn primary-btn-lg" onClick={onNext} disabled={!canContinue} style={!canContinue ? { opacity: 0.65, cursor: "not-allowed" } : undefined}>
             Next →
           </button>

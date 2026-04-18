@@ -173,12 +173,17 @@ export function Step5OtherUploads({ data, onUpdate, onNext, onBack }: Step5Props
             border: "1px solid rgba(239,68,68,0.25)",
             background: "rgba(239,68,68,0.08)",
             color: "#991b1b",
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.6,
+            fontSize: 14,
           }}
         >
-          <span style={{ fontWeight: 900 }}>Required documents missing:</span> Please upload both your official transcript
-          and IELTS score card to continue.
+          <div style={{ fontWeight: 900, marginBottom: 4 }}>Required documents missing</div>
+          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
+            {data.transcript.length === 0 && <li>Official Transcript — not yet uploaded</li>}
+            {data.ielts.length === 0 && <li>IELTS Test Report Form — not yet uploaded</li>}
+          </ul>
+          <div style={{ marginTop: 6, fontSize: 13 }}>Please upload both documents above before continuing.</div>
         </div>
       )}
 
@@ -188,16 +193,16 @@ export function Step5OtherUploads({ data, onUpdate, onNext, onBack }: Step5Props
           ← Back
         </button>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="ghost-btn" onClick={() => alert("Draft saved successfully!")}>
-            Save Draft
-          </button>
-
-        <button className="primary-btn" type="button" onClick={onNext}>
-  Next →
-</button>
-
-        </div>
+        <button
+          className="primary-btn"
+          type="button"
+          onClick={onNext}
+          disabled={!canProceed}
+          style={!canProceed ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+          title={!canProceed ? "Upload both required documents to continue" : undefined}
+        >
+          Next →
+        </button>
       </div>
     </div>
   );

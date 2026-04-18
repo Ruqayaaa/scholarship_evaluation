@@ -3,10 +3,9 @@ import { InfoCard } from "./InfoCard";
 
 export type PersonalInfoData = {
   fullName: string;
-  email: string;
   dateOfBirth: string;
   country: string;
-  program: string;
+  chosenMajor: string;
   university: string;
   gpa: string;
   graduationYear: string;
@@ -17,6 +16,7 @@ type Step1Props = {
   data: PersonalInfoData;
   onUpdate: (next: PersonalInfoData) => void;
   onNext: () => void;
+  onSaveDraft: () => void;
 };
 
 function Field({
@@ -41,8 +41,20 @@ function Field({
   );
 }
 
-export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
+function isValidGpa(raw: string): boolean {
+  const v = raw.trim();
+  if (!v) return false;
+  const withoutPct = v.endsWith("%") ? v.slice(0, -1) : v;
+  const num = parseFloat(withoutPct);
+  if (isNaN(num)) return false;
+  if (v.endsWith("%")) return num >= 0 && num <= 100;
+  if (num > 4.0) return num >= 0 && num <= 100; // treat 4.01–100 as percentage
+  return num >= 0 && num <= 4.0;
+}
+
+export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1Props) {
   const countries = [
+    "Bahrain",
     "United States",
     "United Kingdom",
     "Canada",
@@ -67,10 +79,9 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
 
   const requiredFields: (keyof PersonalInfoData)[] = [
     "fullName",
-    "email",
     "dateOfBirth",
     "country",
-    "program",
+    "chosenMajor",
     "university",
     "gpa",
     "graduationYear",
@@ -80,9 +91,9 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
   const allFilled = requiredFields.every((k) => String(data[k]).trim().length > 0);
   const ieltsNum = parseFloat(data.ieltsScore);
   const ieltsOk = !data.ieltsScore || isNaN(ieltsNum) || ieltsNum >= 6.0;
-  const canContinue = allFilled && !isNaN(ieltsNum) && ieltsNum >= 6.0;
-
-  const handleSaveDraft = () => alert("Draft saved successfully!");
+  const gpaFilled = data.gpa.trim().length > 0;
+  const gpaOk = !gpaFilled || isValidGpa(data.gpa);
+  const canContinue = allFilled && !isNaN(ieltsNum) && ieltsNum >= 6.0 && gpaOk && gpaFilled && isValidGpa(data.gpa);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -122,19 +133,6 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
                     placeholder="Enter your full name"
                     value={data.fullName}
                     onChange={(e) => setField("fullName", e.target.value)}
-                  />
-                </div>
-              </Field>
-
-              <Field id="email" label="Email Address *">
-                <div className="input-wrap">
-                  <input
-                    id="email"
-                    className="input"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={data.email}
-                    onChange={(e) => setField("email", e.target.value)}
                   />
                 </div>
               </Field>
@@ -184,24 +182,24 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
                 gap: 14,
               }}
             >
-              <Field id="program" label="Program / Major *">
+              <Field id="chosenMajor" label="Chosen Major *">
                 <div className="input-wrap">
                   <input
-                    id="program"
+                    id="chosenMajor"
                     className="input"
                     placeholder="e.g., Computer Science, Business Administration"
-                    value={data.program}
-                    onChange={(e) => setField("program", e.target.value)}
+                    value={data.chosenMajor}
+                    onChange={(e) => setField("chosenMajor", e.target.value)}
                   />
                 </div>
               </Field>
 
-              <Field id="university" label="University / School Name *">
+              <Field id="university" label="School Name *">
                 <div className="input-wrap">
                   <input
                     id="university"
                     className="input"
-                    placeholder="Enter your institution name"
+                    placeholder="Enter your school name"
                     value={data.university}
                     onChange={(e) => setField("university", e.target.value)}
                   />
@@ -211,7 +209,11 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
               <Field
                 id="gpa"
                 label="GPA *"
-                hint="Enter as numeric (4.0 scale) or percentage"
+                hint={
+                  gpaFilled && !gpaOk
+                    ? undefined
+                    : "Decimal format: 0.0–4.0 (e.g., 3.8) · Percentage format: 0–100 (e.g., 90 or 90%)"
+                }
               >
                 <div className="input-wrap">
                   <input
@@ -220,11 +222,17 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
                     placeholder="e.g., 3.8 or 90%"
                     value={data.gpa}
                     onChange={(e) => setField("gpa", e.target.value)}
+                    style={gpaFilled && !gpaOk ? { borderColor: "#ef4444" } : undefined}
                   />
                 </div>
+                {gpaFilled && !gpaOk && (
+                  <div style={{ color: "#ef4444", fontSize: 13, marginTop: 4, fontWeight: 600 }}>
+                    Invalid GPA. Use decimal (0.0–4.0, e.g., 3.8) or percentage (0–100, e.g., 90 or 90%).
+                  </div>
+                )}
               </Field>
 
-              <Field id="gradYear" label="Graduation Year *">
+              <Field id="gradYear" label="Expected Graduation Year *">
                 <div className="input-wrap">
                   <select
                     id="gradYear"
@@ -295,24 +303,30 @@ export function Step1PersonalInfo({ data, onUpdate, onNext }: Step1Props) {
           flexWrap: "wrap",
         }}
       >
-        <button type="button" className="ghost-btn" onClick={handleSaveDraft}>
+        <button type="button" className="ghost-btn" onClick={onSaveDraft}>
           Save Draft
         </button>
 
-      <button
-        className="primary-btn"
-        type="button"
-        onClick={onNext}
-        disabled={!canContinue}
-        style={!canContinue ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
-        title={!allFilled ? "Please fill all required fields" : !ieltsOk ? "IELTS score must be 6.0 or above" : undefined}
-      >
-        Next →
-      </button>
-
+        <button
+          className="primary-btn"
+          type="button"
+          onClick={onNext}
+          disabled={!canContinue}
+          style={!canContinue ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+          title={
+            !allFilled
+              ? "Please fill all required fields"
+              : !gpaOk
+              ? "Enter a valid GPA (decimal 0–4.0 or percentage 0–100)"
+              : !ieltsOk
+              ? "IELTS score must be 6.0 or above"
+              : undefined
+          }
+        >
+          Next →
+        </button>
       </div>
 
-  
       <style>{`
         @media (max-width: 900px) {
           .step1-grid {

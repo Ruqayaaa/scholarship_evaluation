@@ -24,6 +24,7 @@ interface Step3Props {
   onUpdate: (data: any) => void;
   onNext: () => void;
   onBack: () => void;
+  onSaveDraft: () => void;
 }
 
 // ── OCR helpers ──────────────────────────────────────────────────────────────
@@ -258,7 +259,11 @@ function SkillsInput({ skills, onAdd, onRemove }: { skills: string[]; onAdd: (s:
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
+function hasEntry(items: any[], keyFields: string[]): boolean {
+  return items.length > 0 && items.some((item) => keyFields.some((f) => String(item[f] || "").trim().length > 0));
+}
+
+export function Step3Resume({ data, onUpdate, onNext, onBack, onSaveDraft }: Step3Props) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 20 }, (_, i) => String(currentYear - i + 5));
 
@@ -285,12 +290,14 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
 
   const addSkill = (skill: string) => { if (skill && !data.skills.includes(skill)) onUpdate({ ...data, skills: [...data.skills, skill] }); };
   const removeSkill = (skill: string) => onUpdate({ ...data, skills: data.skills.filter((s) => s !== skill) });
-  const handleSaveDraft = () => alert("Draft saved successfully!");
 
-  const hasValidEducation = data.education.some(
-    (e) => e.institution.trim().length > 0 && e.degree.trim().length > 0
-  );
-  const canContinue = hasValidEducation;
+  const hasValidEducation  = hasEntry(data.education,  ["institution"]);
+  const hasValidExperience = hasEntry(data.experience, ["jobTitle", "organization", "responsibilities"]);
+  const hasValidSkills     = data.skills.length > 0;
+  const hasValidAwards     = hasEntry(data.awards,     ["name"]);
+  const hasValidCommunity  = hasEntry(data.community,  ["organization", "role"]);
+  const hasValidLeadership = hasEntry(data.leadership ?? [], ["role", "organization"]);
+  const canContinue = hasValidEducation && hasValidExperience && hasValidSkills && hasValidAwards && hasValidCommunity && hasValidLeadership;
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -458,8 +465,11 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
       {/* Structured Fields */}
       <div className="card" style={{ width: "100%" }}>
         <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Structure Your Resume</div>
-        <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 16 }}>
+        <div style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 6 }}>
           Fill in the fields below for each rubric category. Edit any fields pre-filled by OCR.
+        </div>
+        <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.28)", color: "#92400e", fontSize: 13, fontWeight: 700, marginBottom: 16 }}>
+          All sections are required. If a section is not applicable to you, add one entry and type <strong>"NA"</strong> in the main field.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -548,7 +558,7 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 18 }}>
             <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>Skills & Certifications</div>
             <div style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>
-              Technical skills, languages, software, and certifications. Examples: Python, AWS Certified, Arabic, Leadership.
+              Technical skills, languages, software, and certifications. Examples: Python, AWS Certified, Arabic, Leadership. If not applicable, type "NA" and press Enter.
             </div>
             <SkillsInput skills={data.skills} onAdd={addSkill} onRemove={removeSkill} />
           </div>
@@ -663,12 +673,17 @@ export function Step3Resume({ data, onUpdate, onNext, onBack }: Step3Props) {
         <button type="button" className="ghost-btn" onClick={onBack}>← Back</button>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
           {!canContinue && (
-            <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
-              Add at least one education entry (institution + degree required).
+            <div style={{ fontSize: 13, color: "#92400e", fontWeight: 600, textAlign: "right" }}>
+              {!hasValidEducation  && "Education: add at least one entry. "}
+              {!hasValidExperience && "Experience: add at least one entry (or \"NA\"). "}
+              {!hasValidSkills     && "Skills: add at least one skill (or \"NA\"). "}
+              {!hasValidAwards     && "Awards: add at least one entry (or \"NA\"). "}
+              {!hasValidCommunity  && "Community: add at least one entry (or \"NA\"). "}
+              {!hasValidLeadership && "Leadership: add at least one entry (or \"NA\")."}
             </div>
           )}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="button" className="ghost-btn" onClick={handleSaveDraft}>Save Draft</button>
+            <button type="button" className="ghost-btn" onClick={onSaveDraft}>Save Draft</button>
             <button
               type="button"
               className="primary-btn primary-btn-lg"
