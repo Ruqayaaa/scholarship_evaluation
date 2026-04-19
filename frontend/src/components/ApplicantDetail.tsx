@@ -608,19 +608,37 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                         </div>
                       </div>
                     )}
-                    {ev.scores && Object.keys(ev.scores).filter((k) => !k.startsWith("_")).length > 0 && (
-                      <div>
-                        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Reviewer Scores (0–10)</div>
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          {Object.entries(ev.scores).filter(([k]) => !k.startsWith("_")).map(([key, val]) => (
-                            <div key={key} style={{ background: "#f1f5f9", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>
-                              <span style={{ color: "#64748b", textTransform: "capitalize" }}>{key.replace(/_/g, " ")}: </span>
-                              <span style={{ fontWeight: 700 }}>{val}/10</span>
-                            </div>
-                          ))}
+                    {ev.scores && (() => {
+                      const s = ev.scores as Record<string, number>;
+                      const pKeys = ["p_creativity", "p_technical", "p_relevance", "p_impact"];
+                      const iKeys = ["i_communication", "i_critical", "i_alignment", "i_passion", "i_professionalism"];
+                      const pVals = pKeys.map((k) => s[k]).filter((v) => typeof v === "number" && !isNaN(v));
+                      const iVals = iKeys.map((k) => s[k]).filter((v) => typeof v === "number" && !isNaN(v));
+                      const pAvg = pVals.length > 0 ? (pVals.reduce((a, b) => a + b, 0) / pVals.length).toFixed(1) : null;
+                      const iAvg = iVals.length > 0 ? (iVals.reduce((a, b) => a + b, 0) / iVals.length).toFixed(1) : null;
+                      if (!pAvg && !iAvg) return null;
+                      return (
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Reviewer Scores</div>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {pAvg && (
+                              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 16px" }}>
+                                <div style={{ fontSize: 11, color: "#0369a1", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Portfolio</div>
+                                <span style={{ fontWeight: 800, fontSize: 18, color: "#0c4a6e" }}>{pAvg}</span>
+                                <span style={{ color: "#64748b", fontSize: 12 }}> / 10</span>
+                              </div>
+                            )}
+                            {iAvg && (
+                              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "8px 16px" }}>
+                                <div style={{ fontSize: 11, color: "#15803d", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Interview</div>
+                                <span style={{ fontWeight: 800, fontSize: 18, color: "#14532d" }}>{iAvg}</span>
+                                <span style={{ color: "#64748b", fontSize: 12 }}> / 10</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               );

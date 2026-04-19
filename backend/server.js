@@ -994,12 +994,12 @@ app.patch("/admin/applicants/:id/interview", async (req, res) => {
 });
 
 // ── Admin: set final decision ─────────────────────────────────────────────────
+// Uses service role — reqDb(req) is user-scoped and RLS blocks admin updates.
 app.patch("/admin/applicants/:id/decision", async (req, res) => {
   try {
     const { decision, notes } = req.body;
-    const db = reqDb(req);
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("applications")
       .update({
         final_decision: decision,
@@ -1014,7 +1014,7 @@ app.patch("/admin/applicants/:id/decision", async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json({ ok: true, applicant: await toApplicantShape(data, db) });
+    res.json({ ok: true, applicant: await toApplicantShape(data) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

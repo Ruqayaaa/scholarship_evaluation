@@ -206,10 +206,9 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
   const prev = () => setStep((s) => Math.max(1, s - 1));
   const isLocked = evalStatus === "submitted";
 
-  // ── Shared AI Score Block ────────────────────────────────────────────────────
+  // ── Shared AI Score Block (read-only display — notes are separate blocks below) ─
   function AiScoreBlock({
     title, overall, outOf, criteria, strengths, improvements, justification,
-    notes, onNotesChange,
   }: {
     title: string;
     overall: number;
@@ -218,8 +217,6 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     strengths: string[];
     improvements: string[];
     justification?: string;
-    notes: string;
-    onNotesChange: (v: string) => void;
   }) {
     const pct = outOf > 0 ? Math.round((overall / outOf) * 100) : 0;
     const scoreColor = pct >= 70 ? "#15803d" : pct >= 50 ? "#b45309" : "#b91c1c";
@@ -308,26 +305,31 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
           </div>
         )}
 
-        {/* Reviewer Notes */}
-        <div style={{ background: "rgba(255,255,255,0.9)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-            Reviewer Notes
-          </div>
-          <textarea
-            style={{
-              width: "100%", minHeight: 80, resize: "vertical",
-              padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-              background: isLocked ? "#f8fafc" : "#fff",
-              fontSize: 13, lineHeight: 1.6, fontFamily: "inherit",
-              outline: "none", boxSizing: "border-box", color: "#374151",
-              cursor: isLocked ? "not-allowed" : "text",
-            }}
-            value={notes}
-            onChange={(e) => onNotesChange(e.target.value)}
-            placeholder="Add notes or observations about these scores…"
-            disabled={isLocked}
-          />
-        </div>
+      </div>
+    );
+  }
+
+  // ── Standalone reviewer notes block (matches Portfolio Notes pattern) ─────────
+  function ReviewerNotesBlock({
+    title, value, onChange, placeholder,
+  }: {
+    title: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder: string;
+  }) {
+    return (
+      <div className="reviewer-block">
+        <div className="reviewer-block-title">{title}</div>
+        <p className="reviewer-muted" style={{ marginBottom: 10 }}>{placeholder}</p>
+        <textarea
+          className="reviewer-textarea"
+          rows={4}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={`Add your notes here…`}
+          disabled={isLocked}
+        />
       </div>
     );
   }
@@ -408,18 +410,24 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                 </div>
               )}
 
-              {/* PS AI Scores */}
+              {/* PS AI Scores + reviewer notes */}
               {applicant.psScores && (
-                <AiScoreBlock
-                  title="AI Scores — Personal Statement"
-                  overall={applicant.psScores.overall_score}
-                  outOf={100}
-                  criteria={PS_CRITERIA.map((c) => ({ ...c, score: (applicant.psScores![c.key] as number) || 0 }))}
-                  strengths={applicant.psScores.strengths}
-                  improvements={applicant.psScores.improvements}
-                  notes={psAiNotes}
-                  onNotesChange={setPsAiNotes}
-                />
+                <>
+                  <AiScoreBlock
+                    title="AI Scores — Personal Statement"
+                    overall={applicant.psScores.overall_score}
+                    outOf={100}
+                    criteria={PS_CRITERIA.map((c) => ({ ...c, score: (applicant.psScores![c.key] as number) || 0 }))}
+                    strengths={applicant.psScores.strengths}
+                    improvements={applicant.psScores.improvements}
+                  />
+                  <ReviewerNotesBlock
+                    title="Personal Statement Notes"
+                    value={psAiNotes}
+                    onChange={setPsAiNotes}
+                    placeholder="Record observations or comments about the personal statement AI scores."
+                  />
+                </>
               )}
 
               {/* Resume text */}
@@ -432,19 +440,25 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                 </div>
               )}
 
-              {/* Resume AI Scores */}
+              {/* Resume AI Scores + reviewer notes */}
               {applicant.resumeScores && (
-                <AiScoreBlock
-                  title="AI Scores — Resume"
-                  overall={applicant.resumeScores.overall_score}
-                  outOf={180}
-                  criteria={RESUME_CRITERIA.map((c) => ({ ...c, score: (applicant.resumeScores![c.key] as number) || 0 }))}
-                  strengths={applicant.resumeScores.strengths}
-                  improvements={applicant.resumeScores.improvements}
-                  justification={applicant.resumeScores.justification}
-                  notes={resumeAiNotes}
-                  onNotesChange={setResumeAiNotes}
-                />
+                <>
+                  <AiScoreBlock
+                    title="AI Scores — Resume"
+                    overall={applicant.resumeScores.overall_score}
+                    outOf={180}
+                    criteria={RESUME_CRITERIA.map((c) => ({ ...c, score: (applicant.resumeScores![c.key] as number) || 0 }))}
+                    strengths={applicant.resumeScores.strengths}
+                    improvements={applicant.resumeScores.improvements}
+                    justification={applicant.resumeScores.justification}
+                  />
+                  <ReviewerNotesBlock
+                    title="Resume Notes"
+                    value={resumeAiNotes}
+                    onChange={setResumeAiNotes}
+                    placeholder="Record observations or comments about the resume AI scores."
+                  />
+                </>
               )}
 
               {!applicant.psScores && !applicant.resumeScores && (
