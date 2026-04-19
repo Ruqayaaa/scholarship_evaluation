@@ -457,7 +457,10 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   })}
                 </div>
                 <div className="llm-overall">
-                  <div className="llm-overall-title">Overall: {(re.score.overall_score as number) ?? "—"} / 180</div>
+                  <div className="llm-overall-title">
+                    Overall: {(re.score.overall_score as number) ?? "—"} / 180
+                    {re.score.grade_pct != null && ` (${re.score.grade_pct}%)`}
+                  </div>
                   {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>STRENGTHS:</div>
