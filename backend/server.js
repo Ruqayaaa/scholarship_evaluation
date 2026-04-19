@@ -603,7 +603,33 @@ app.get("/admin/applicants", async (req, res) => {
   }
 });
 
-//  Admin: applicant history across cycles 
+// ── Admin: delete applicant application ──────────────────────────────────────
+// Removes the application row and all related evaluation/assignment records.
+// Does NOT delete the user account itself.
+app.delete("/admin/applicants/:id", async (req, res) => {
+  try {
+    const appId = req.params.id;
+
+    // Delete child rows first to satisfy foreign-key constraints
+    const { error: evalErr } = await supabase
+      .from("reviewer_evaluations").delete().eq("application_id", appId);
+    if (evalErr) throw evalErr;
+
+    const { error: assignErr } = await supabase
+      .from("reviewer_assignments").delete().eq("application_id", appId);
+    if (assignErr) throw assignErr;
+
+    const { error: appErr } = await supabase
+      .from("applications").delete().eq("id", appId);
+    if (appErr) throw appErr;
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//  Admin: applicant history across cycles
 app.get("/admin/history/:applicantUserId", async (req, res) => {
   try {
     const { data: apps, error } = await supabase
@@ -828,6 +854,7 @@ app.delete("/reviewers/:id", async (req, res) => {
 });
 
 // ── Reviewer: get assigned applicants ────────────────────────────────────────
+// Only returns applicants from active cycles — reviewers lose access once a cycle is archived.
 app.get("/reviewer/:reviewerId/applicants", async (req, res) => {
   try {
     const db = reqDb(req);
@@ -841,7 +868,8 @@ app.get("/reviewer/:reviewerId/applicants", async (req, res) => {
     if (!assignments || assignments.length === 0) return res.json([]);
 
     const appIds = assignments.map((a) => a.application_id);
-    // Use service role so RLS never blocks reading personal_statement_input (contains portfolio URL)
+
+    // Fetch applications using service role so RLS never blocks personal_statement_input
     const { data: apps, error } = await supabase
       .from("applications")
       .select("*")
@@ -849,8 +877,20 @@ app.get("/reviewer/:reviewerId/applicants", async (req, res) => {
 
     if (error) throw error;
 
+    // Resolve active cycle IDs — reviewers can only access active-cycle applicants
+    const { data: activeCycles } = await supabase
+      .from("cycles")
+      .select("id")
+      .eq("status", "active");
+    const activeCycleIds = new Set((activeCycles || []).map((c) => c.id));
+
+    // Keep only apps belonging to an active cycle (or apps with no cycle as a fallback)
+    const accessibleApps = (apps || []).filter(
+      (a) => !a.cycle_id || activeCycleIds.has(a.cycle_id)
+    );
+
     // Pass user-scoped db for reviewer_evaluations (RLS scopes them to this reviewer's rows)
-    const applicants = await Promise.all((apps || []).map((a) => toApplicantShape(a, db)));
+    const applicants = await Promise.all(accessibleApps.map((a) => toApplicantShape(a, db)));
     res.json(applicants);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -888,7 +928,7 @@ app.patch("/reviewer/:reviewerId/applications/:appId/evaluation", async (req, re
         {
           application_id: req.params.appId,
           reviewer_id: req.params.reviewerId,
-          recommendation: recommendation || "Pending",
+          recommendation: recommendation || "",
           notes: notes || "",
           scores: scores || {},
           status: status || "draft",

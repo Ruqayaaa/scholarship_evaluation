@@ -570,14 +570,10 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
           ) : (
             applicant.reviewerEvaluations.map((ev) => {
               const reviewer = reviewers.find((r) => r.id === ev.reviewer_id);
-              const recColor =
-                ev.recommendation === "Recommend" ? "#166534" :
-                ev.recommendation === "Do Not Recommend" ? "#991b1b" :
-                ev.recommendation === "Borderline" ? "#92400e" : "#475569";
-              const recBg =
-                ev.recommendation === "Recommend" ? "#dcfce7" :
-                ev.recommendation === "Do Not Recommend" ? "#fee2e2" :
-                ev.recommendation === "Borderline" ? "#fef3c7" : "#f1f5f9";
+              const isYes = ev.recommendation === "Yes" || ev.recommendation === "Recommend";
+              const isNo  = ev.recommendation === "No"  || ev.recommendation === "Do Not Recommend";
+              const recColor = isYes ? "#166534" : isNo ? "#991b1b" : "#475569";
+              const recBg    = isYes ? "#dcfce7"  : isNo ? "#fee2e2"  : "#f1f5f9";
               return (
                 <Card key={ev.id} className="admin-card" style={{ marginBottom: 14 }}>
                   <CardHeader className="admin-card__header">
@@ -641,7 +637,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
               Final Decision
               {isDecisionLocked && (
                 <span style={{ marginLeft: 12, fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: ds.bg, color: ds.color }}>
-                  Locked: {applicant.finalDecision}
+                  Finalized: {applicant.finalDecision}
                 </span>
               )}
             </CardTitle>
@@ -668,7 +664,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                   </div>
                 )}
                 <p style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
-                  This decision has been finalised and cannot be changed.
+                  This decision has been finalized and cannot be changed.
                 </p>
               </div>
             ) : (
@@ -700,10 +696,10 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Button className="admin-primary-btn" onClick={saveDecision} disabled={savingDecision || decision === "Pending"}>
-                    {savingDecision ? "Saving…" : "Finalise Decision"}
+                    {savingDecision ? "Saving…" : "Finalize Decision"}
                   </Button>
                   {decision === "Pending" && (
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>Select a decision to finalise</span>
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>Select a decision to finalize</span>
                   )}
                   {decisionMsg && (
                     <span style={{ fontSize: 13, color: decisionMsg.includes("Failed") ? "#ef4444" : "#16a34a", fontWeight: 600 }}>

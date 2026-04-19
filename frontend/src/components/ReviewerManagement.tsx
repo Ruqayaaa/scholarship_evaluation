@@ -17,6 +17,11 @@ export function ReviewerManagement() {
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Reviewer | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   function load() {
     adminFetch(`/reviewers`).then((r) => r.json()).then(setReviewers).catch(() => {});
     adminFetch(`/admin/applicants`)
@@ -59,9 +64,23 @@ export function ReviewerManagement() {
     else { const d = await res.json(); setError(d.error ?? "Failed to add reviewer."); }
   }
 
-  async function deleteReviewer(id: string) {
-    await adminFetch(`/reviewers/${id}`, { method: "DELETE" });
-    load();
+  async function confirmDeleteReviewer() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await adminFetch(`/reviewers/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Removal failed");
+      }
+      setDeleteTarget(null);
+      load();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Removal failed.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -161,8 +180,8 @@ export function ReviewerManagement() {
                         <td>
                           <Button
                             variant="outline"
-                            onClick={() => deleteReviewer(r.id)}
-                            style={{ color: "#ef4444", borderColor: "#ef4444", fontSize: 13, padding: "4px 10px" }}
+                            onClick={() => { setDeleteTarget(r); setDeleteError(null); }}
+                            style={{ color: "#ef4444", borderColor: "#fca5a5", fontSize: 13, padding: "4px 10px" }}
                           >
                             Remove
                           </Button>
@@ -176,6 +195,66 @@ export function ReviewerManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9000,
+            background: "rgba(15,23,42,0.55)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => { if (!deleting) setDeleteTarget(null); }}
+        >
+          <div
+            style={{
+              background: "white", borderRadius: 14, padding: "28px 32px",
+              maxWidth: 420, width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 10 }}>
+              Remove Reviewer?
+            </div>
+            <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6, marginBottom: 20 }}>
+              You are about to permanently remove{" "}
+              <strong>{deleteTarget.name}</strong> ({deleteTarget.email}) from the system.
+              Their account will be deleted and they will lose access immediately.
+              <br /><br />
+              {assignedCounts[deleteTarget.id] > 0 && (
+                <span style={{ color: "#b45309" }}>
+                  ⚠ This reviewer is currently assigned to{" "}
+                  <strong>{assignedCounts[deleteTarget.id]}</strong> applicant(s).
+                  Existing evaluations will be preserved.
+                  <br /><br />
+                </span>
+              )}
+              <strong style={{ color: "#dc2626" }}>This action cannot be undone.</strong>
+            </p>
+            {deleteError && (
+              <p style={{ fontSize: 13, color: "#dc2626", fontWeight: 600, marginBottom: 12 }}>
+                {deleteError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteReviewer}
+                disabled={deleting}
+                style={{ background: "#dc2626", color: "white", border: "none" }}
+              >
+                {deleting ? "Removing…" : "Yes, Remove"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

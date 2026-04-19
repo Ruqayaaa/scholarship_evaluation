@@ -106,8 +106,8 @@ export default function AdminPortal() {
           />
 
           <main className="admin-main" role="main">
-            {/* Cycle switcher bar */}
-            {view !== "cycles" && Array.isArray(cycles) && cycles.length > 0 && (
+            {/* Cycle switcher bar — hidden on reviewers tab (reviewers are global, not per-cycle) */}
+            {view !== "cycles" && view !== "reviewers" && Array.isArray(cycles) && cycles.length > 0 && (
               <div className="ds-cycle-bar">
                 <span className="ds-cycle-label">Viewing cycle:</span>
                 <select

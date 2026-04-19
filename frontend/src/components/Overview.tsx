@@ -28,8 +28,11 @@ const STATS_CONFIG = [
 export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
   const [stats, setStats] = useState<Stats>({ total: 0, submitted: 0, underReview: 0, reviewers: 0 });
   const [latest, setLatest] = useState<Row[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function loadData() {
     const qs = cycleId ? `?cycleId=${cycleId}` : "";
 
     adminFetch(`/admin/stats${qs}`)
@@ -52,7 +55,28 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
         setLatest(rows);
       })
       .catch(() => {});
-  }, [cycleId]);
+  }
+
+  useEffect(() => { loadData(); }, [cycleId]);
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await adminFetch(`/admin/applicants/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Deletion failed");
+      }
+      setDeleteTarget(null);
+      loadData();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Deletion failed.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="admin-page">
@@ -93,6 +117,7 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                   <th>Applicant</th>
                   <th>Submitted</th>
                   <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -105,6 +130,16 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                         {a.status}
                       </span>
                     </td>
+                    <td>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setDeleteTarget(a); setDeleteError(null); }}
+                        style={{ color: "#ef4444", borderColor: "#fca5a5", fontSize: 12 }}
+                      >
+                        Delete
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -112,6 +147,58 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9000,
+            background: "rgba(15,23,42,0.55)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => { if (!deleting) setDeleteTarget(null); }}
+        >
+          <div
+            style={{
+              background: "white", borderRadius: 14, padding: "28px 32px",
+              maxWidth: 420, width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 10 }}>
+              Delete Applicant?
+            </div>
+            <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6, marginBottom: 20 }}>
+              You are about to permanently delete the application for{" "}
+              <strong>{deleteTarget.name}</strong>. This will also remove all
+              reviewer assignments and evaluations for this application.
+              <br /><br />
+              <strong style={{ color: "#dc2626" }}>This action cannot be undone.</strong>
+            </p>
+            {deleteError && (
+              <p style={{ fontSize: 13, color: "#dc2626", fontWeight: 600, marginBottom: 12 }}>
+                {deleteError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                disabled={deleting}
+                style={{ background: "#dc2626", color: "white", border: "none" }}
+              >
+                {deleting ? "Deleting…" : "Yes, Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
