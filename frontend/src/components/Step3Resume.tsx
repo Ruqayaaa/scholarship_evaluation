@@ -474,8 +474,8 @@ export function Step3Resume({ data, onUpdate, onNext, onBack, onSaveDraft }: Ste
           <div>
             <SectionHeader
               title="Academic Achievement"
-              subtitle="Education history, GPA, honours, and academic awards. Example: BIBF — Diploma in Business Studies (2020–2022)"
-              onAdd={() => listAdd("education", { institution: "", degree: "", startYear: "", endYear: "", gpa: "" })}
+              subtitle="Education history, honours, and academic awards. Example: BIBF — Diploma in Business Studies (2020–2022)"
+              onAdd={() => listAdd("education", { institution: "", degree: "", startYear: "", endYear: "" })}
               addLabel="Add Education"
             />
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -505,10 +505,6 @@ export function Step3Resume({ data, onUpdate, onNext, onBack, onSaveDraft }: Ste
                         </select>
                       </div>
                     </Field>
-                    <Field id={`edu_gpa_${edu.id}`} label="GPA" hint="e.g., 3.8 or 90%">
-                      <div className="input-wrap"><input id={`edu_gpa_${edu.id}`} className="input" placeholder="GPA (e.g., 3.8 or 90%)" value={edu.gpa} onChange={(e) => listUpdate("education", edu.id, "gpa", e.target.value)} /></div>
-                    </Field>
-                    <div />
                   </TwoColGrid>
                 </EntryCard>
               ))}

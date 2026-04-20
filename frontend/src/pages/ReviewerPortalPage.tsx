@@ -48,15 +48,14 @@ function toApplicant(a: BackendApplicant): Applicant {
   const formFields = [
     { label: "Submitted", value: new Date(a.submittedAt).toLocaleDateString() },
     { label: "Status", value: a.status },
-    { label: "Values & Goals", value: ps?.input?.academic_goals ?? "" },
-    { label: "Career Goals", value: ps?.input?.career_goals ?? "" },
-    { label: "Leadership", value: ps?.input?.leadership_experience ?? "" },
   ].filter((f) => f.value);
 
   // Full text answers shown in the review panel
   const answers = [
-    { question: "Personal Statement", answer: ps?.input?.personal_statement ?? "" },
-    { question: "Leadership Experience", answer: ps?.input?.leadership_experience ?? "" },
+    { question: "Interests & Values", answer: ps?.input?.academic_goals ?? "" },
+    { question: "Academic Commitment", answer: ps?.input?.career_goals ?? "" },
+    { question: "Clarity of Vision", answer: ps?.input?.leadership_experience ?? "" },
+    { question: "Closing Summary", answer: ps?.input?.personal_statement ?? "" },
     { question: "Resume Text", answer: re?.input?.resume_text ?? "" },
   ].filter((q) => q.answer);
 

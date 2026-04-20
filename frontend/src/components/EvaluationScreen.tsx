@@ -208,37 +208,35 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
 
   // ── Shared AI Score Block (read-only display — notes are separate blocks below) ─
   function AiScoreBlock({
-    title, overall, outOf, criteria, strengths, improvements, justification,
+    title, overall, outOf, criteria, justification,
   }: {
     title: string;
     overall: number;
     outOf: number;
     criteria: { key: string; label: string; max: number; score: number }[];
-    strengths: string[];
-    improvements: string[];
     justification?: string;
   }) {
     const pct = outOf > 0 ? Math.round((overall / outOf) * 100) : 0;
     const scoreColor = pct >= 70 ? "#15803d" : pct >= 50 ? "#b45309" : "#b91c1c";
     return (
-      <div className="reviewer-block reviewer-ai">
+      <div className="reviewer-block reviewer-ai" style={{ padding: "18px 20px" }}>
         {/* Header row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <div className="reviewer-block-title" style={{ margin: 0 }}>{title}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 8 }}>
+          <div className="reviewer-block-title" style={{ margin: 0, fontSize: 15 }}>{title}</div>
           <div style={{
-            display: "flex", alignItems: "center", gap: 10,
-            background: "rgba(255,255,255,0.9)", border: "1.5px solid var(--border)",
-            borderRadius: 10, padding: "6px 14px",
+            display: "flex", alignItems: "center", gap: 8,
+            background: "#f8fafc", border: "1.5px solid #e2e8f0",
+            borderRadius: 10, padding: "8px 16px",
           }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Overall
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Score
             </span>
-            <span style={{ fontSize: 20, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
               {overall}
             </span>
-            <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>/ {outOf}</span>
+            <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>/ {outOf}</span>
             <span style={{
-              fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+              fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20,
               background: pct >= 70 ? "#dcfce7" : pct >= 50 ? "#fef3c7" : "#fee2e2",
               color: scoreColor,
             }}>
@@ -248,20 +246,23 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
         </div>
 
         {/* Criteria bars */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
           {criteria.map(({ key, label, max, score }) => {
             const barPct = max > 0 ? (score / max) * 100 : 0;
+            const barColor = barPct >= 70 ? "#16a34a" : barPct >= 50 ? "#d97706" : "#ef4444";
             return (
               <div key={key}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{score} / {max}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: barColor, minWidth: 50, textAlign: "right" }}>
+                    {score} <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: 12 }}>/ {max}</span>
+                  </span>
                 </div>
-                <div style={{ height: 7, background: "#e5e7eb", borderRadius: 4 }}>
+                <div style={{ height: 8, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
                   <div style={{
-                    height: "100%", borderRadius: 4, transition: "width 0.3s",
+                    height: "100%", borderRadius: 6, transition: "width 0.4s ease",
                     width: `${barPct}%`,
-                    background: barPct >= 70 ? "#16a34a" : barPct >= 50 ? "#d97706" : "#ef4444",
+                    background: barColor,
                   }} />
                 </div>
               </div>
@@ -269,42 +270,15 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
           })}
         </div>
 
-        {/* Strengths / Improvements */}
-        {(strengths.length > 0 || improvements.length > 0) && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            {strengths.length > 0 && (
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#15803d", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-                  Strengths
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 14, fontSize: 13, color: "#166534", lineHeight: 1.6 }}>
-                  {strengths.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-              </div>
-            )}
-            {improvements.length > 0 && (
-              <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#c2410c", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-                  Areas to Improve
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 14, fontSize: 13, color: "#9a3412", lineHeight: 1.6 }}>
-                  {improvements.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Justification (resume only) */}
         {justification && (
-          <div style={{ background: "rgba(255,255,255,0.8)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", marginBottom: 14, fontSize: 13, color: "#374151", lineHeight: 1.65 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-              AI Justification
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#374151", lineHeight: 1.65 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+              AI Notes
             </div>
             {justification}
           </div>
         )}
-
       </div>
     );
   }
@@ -418,8 +392,6 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     overall={applicant.psScores.overall_score}
                     outOf={100}
                     criteria={PS_CRITERIA.map((c) => ({ ...c, score: (applicant.psScores![c.key] as number) || 0 }))}
-                    strengths={applicant.psScores.strengths}
-                    improvements={applicant.psScores.improvements}
                   />
                   <ReviewerNotesBlock
                     title="Personal Statement Notes"
@@ -448,8 +420,6 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     overall={applicant.resumeScores.overall_score}
                     outOf={180}
                     criteria={RESUME_CRITERIA.map((c) => ({ ...c, score: (applicant.resumeScores![c.key] as number) || 0 }))}
-                    strengths={applicant.resumeScores.strengths}
-                    improvements={applicant.resumeScores.improvements}
                     justification={applicant.resumeScores.justification}
                   />
                   <ReviewerNotesBlock

@@ -40,7 +40,7 @@ function buildDefaultAppData(): ApplicationData {
     },
     resume: {
       uploadedFile: [],
-      education:  [{ id: uid(), institution: "", degree: "", startYear: "", endYear: "", gpa: "" }],
+      education:  [{ id: uid(), institution: "", degree: "", startYear: "", endYear: "" }],
       experience: [{ id: uid(), jobTitle: "", organization: "", startDate: "", endDate: "", responsibilities: "" }],
       skills:     [],
       awards:     [{ id: uid(), name: "", year: "", description: "" }],

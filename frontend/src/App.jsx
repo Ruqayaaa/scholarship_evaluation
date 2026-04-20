@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import { ApplicantAuth } from "./pages/ApplicantAuth";
-import AdminLogin from "./pages/AdminLogin";
 import ApplicantPortalPage from "./pages/ApplicantPortalPage";
 import ReviewerPortalPage from "./pages/ReviewerPortalPage";
 import AdminPortal from "./pages/AdminPortal";
@@ -9,6 +8,7 @@ import SuperAdminLoginPage from "./pages/SuperAdminLoginPage";
 import SuperAdminPortalPage from "./pages/SuperAdminPortalPage";
 import PersonalStatementForm from "./components/PersonalStatementForm";
 import ResumeForm from "./components/ResumeForm";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import "./styles.css";
 
 export default function App() {
@@ -17,26 +17,56 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
 
-        {/* Applicant */}
+        {/* Auth */}
         <Route path="/applicant/auth" element={<ApplicantAuth />} />
-        <Route path="/app" element={<ApplicantPortalPage />} />
-
-        {/* Reviewer */}
-        <Route path="/reviewer" element={<ReviewerPortalPage />} />
-
-        {/* University Admin (login unified with applicant auth) */}
         <Route path="/admin/login" element={<Navigate to="/applicant/auth" replace />} />
-        <Route path="/admin" element={<AdminPortal />} />
+
+        {/* Applicant — must be logged in */}
+        <Route
+          path="/app"
+          element={
+            <ProtectedRoute allowedRoles={["applicant"]}>
+              <ApplicantPortalPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reviewer — must be logged in as reviewer (or admin) */}
+        <Route
+          path="/reviewer"
+          element={
+            <ProtectedRoute allowedRoles={["reviewer", "admin", "superadmin"]}>
+              <ReviewerPortalPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin — must be logged in as admin */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+              <AdminPortal />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Super Admin */}
         <Route path="/superadmin-login" element={<SuperAdminLoginPage />} />
-        <Route path="/superadmin" element={<SuperAdminPortalPage />} />
+        <Route
+          path="/superadmin"
+          element={
+            <ProtectedRoute allowedRoles={["superadmin"]}>
+              <SuperAdminPortalPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Standalone scoring tools */}
         <Route path="/ps" element={<PersonalStatementForm />} />
         <Route path="/resume" element={<ResumeForm />} />
 
-        {/* Keep this LAST */}
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

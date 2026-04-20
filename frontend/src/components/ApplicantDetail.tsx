@@ -32,6 +32,9 @@ type HistoryEntry = {
   reviewerStatus: string | null;
 };
 
+type DocFile = { name: string; path: string; url: string | null; uploadedAt: string };
+type DocumentMap = Record<string, DocFile[]>;
+
 type BackendApplicant = {
   id: string;
   applicantId: string;
@@ -54,6 +57,7 @@ type BackendApplicant = {
     input: Record<string, string>;
     score: Record<string, number | string>;
   } | null;
+  documents: DocumentMap | null;
 };
 
 function VisibilityToggle({ visible, saving, onChange }: { visible: boolean; saving: boolean; onChange: (v: boolean) => void }) {
@@ -105,8 +109,8 @@ const DECISION_COLORS: Record<string, { bg: string; color: string }> = {
   Pending:    { bg: "#f1f5f9", color: "#475569" },
 };
 
-type StepKey = "application" | "scores" | "reviewer" | "decision" | "history";
-const STEP_KEYS: StepKey[] = ["scores", "application", "reviewer", "decision", "history"];
+type StepKey = "application" | "scores" | "reviewer" | "decision" | "documents" | "history";
+const STEP_KEYS: StepKey[] = ["scores", "application", "reviewer", "decision", "documents", "history"];
 
 export function ApplicantDetail({ applicantId, onBack }: Props) {
   const [applicant, setApplicant] = useState<BackendApplicant | null>(null);
@@ -256,11 +260,13 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
   const unassignedReviewers = reviewers.filter((r) => !applicant.assignedReviewerIds.includes(r.id));
 
   // Step completion status for the indicator
+  const hasDocuments = applicant.documents && Object.keys(applicant.documents).length > 0;
   const stepStatus: Record<StepKey, "complete" | "active" | "pending"> = {
     application: assignedReviewers.length > 0 ? "complete" : activeStep === "application" ? "active" : "pending",
     scores:      (ps || re) ? "complete" : activeStep === "scores" ? "active" : "pending",
     reviewer:    applicant.reviewerEvaluations.some((e) => e.status === "submitted") ? "complete" : activeStep === "reviewer" ? "active" : "pending",
     decision:    isDecisionLocked ? "complete" : activeStep === "decision" ? "active" : "pending",
+    documents:   hasDocuments ? "complete" : activeStep === "documents" ? "active" : "pending",
     history:     activeStep === "history" ? "active" : "pending",
   };
   // Override — always mark active step as active
@@ -271,6 +277,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
     application: "Assignment",
     reviewer:    "Reviewer",
     decision:    "Decision",
+    documents:   "Documents",
     history:     "History",
   };
 
@@ -763,6 +770,68 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                     </span>
                   )}
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step: Documents */}
+      {activeStep === "documents" && (
+        <Card className="admin-card">
+          <CardHeader className="admin-card__header">
+            <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>
+              Uploaded Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="admin-card__content">
+            {!applicant.documents || Object.keys(applicant.documents).length === 0 ? (
+              <p className="admin-empty">No supporting documents have been uploaded yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {(() => {
+                  const CATEGORY_LABELS: Record<string, string> = {
+                    transcript: "Official Transcript",
+                    ielts: "IELTS Test Report Form",
+                    cv_optional: "CV / Resume (Optional)",
+                    statement_optional: "Personal Statement PDF (Optional)",
+                    additional: "Additional Materials",
+                  };
+                  return Object.entries(applicant.documents!).map(([category, files]) => (
+                    <div key={category}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy)", marginBottom: 8 }}>
+                        {CATEGORY_LABELS[category] ?? category}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {(files as DocFile[]).map((f, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb", gap: 12 }}>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 13 }}>{f.name}</div>
+                              <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                                Uploaded {f.uploadedAt ? new Date(f.uploadedAt).toLocaleString() : ""}
+                              </div>
+                            </div>
+                            {f.url ? (
+                              <a
+                                href={f.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #2563eb", color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none", flexShrink: 0 }}
+                              >
+                                View / Download
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: 12, color: "#94a3b8" }}>Link expired</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+                <p style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
+                  Document links expire after 24 hours. Reload the page to refresh them.
+                </p>
               </div>
             )}
           </CardContent>

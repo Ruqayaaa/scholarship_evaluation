@@ -11,6 +11,7 @@ interface Step4Props {
 }
 
 export function Step4Portfolio({ data, onUpdate, onNext, onBack }: Step4Props) {
+  const hasFile = data.files.length > 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -21,6 +22,7 @@ export function Step4Portfolio({ data, onUpdate, onNext, onBack }: Step4Props) {
         </div>
         <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
           Upload a portfolio showcasing achievements, creativity, and community contribution.
+          A portfolio upload is required to continue.
         </div>
       </div>
 
@@ -56,7 +58,7 @@ export function Step4Portfolio({ data, onUpdate, onNext, onBack }: Step4Props) {
       {/* Upload */}
       <div className="card" style={{ width: "100%" }}>
         <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
-          Upload Your Portfolio
+          Upload Your Portfolio <span style={{ color: "#ef4444", fontSize: 14 }}>*</span>
         </div>
 
         <FileUpload
@@ -68,6 +70,21 @@ export function Step4Portfolio({ data, onUpdate, onNext, onBack }: Step4Props) {
           files={data.files}
           onFilesChange={(files) => onUpdate({ files })}
         />
+
+        {!hasFile && (
+          <div style={{
+            marginTop: 12,
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid rgba(239,68,68,0.25)",
+            background: "rgba(239,68,68,0.07)",
+            color: "#991b1b",
+            fontWeight: 700,
+            fontSize: 13,
+          }}>
+            Portfolio upload is required to continue to the next step.
+          </div>
+        )}
 
         <div
           style={{
@@ -98,16 +115,16 @@ export function Step4Portfolio({ data, onUpdate, onNext, onBack }: Step4Props) {
           ← Back
         </button>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="ghost-btn" onClick={() => alert("Draft saved successfully!")}>
-            Save Draft
-          </button>
-          
-<button className="primary-btn" type="button" onClick={onNext}>
-  Next →
-</button>
-
-        </div>
+        <button
+          className="primary-btn"
+          type="button"
+          onClick={onNext}
+          disabled={!hasFile}
+          style={!hasFile ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+          title={!hasFile ? "Upload your portfolio to continue" : undefined}
+        >
+          Next →
+        </button>
       </div>
 
       <style>{`

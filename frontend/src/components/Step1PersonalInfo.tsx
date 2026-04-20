@@ -65,23 +65,6 @@ function isEligibleGpa(raw: string): boolean {
 }
 
 export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1Props) {
-  const countries = [
-    "Bahrain",
-    "United States",
-    "United Kingdom",
-    "Canada",
-    "Australia",
-    "Germany",
-    "France",
-    "Spain",
-    "Italy",
-    "Japan",
-    "China",
-    "India",
-    "Brazil",
-    "Other",
-  ];
-
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
 
@@ -164,21 +147,13 @@ export function Step1PersonalInfo({ data, onUpdate, onNext, onSaveDraft }: Step1
 
               <Field id="country" label="Country *">
                 <div className="input-wrap">
-                  <select
+                  <input
                     id="country"
                     className="input"
+                    placeholder="e.g., Bahrain, United States"
                     value={data.country}
                     onChange={(e) => setField("country", e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Select country
-                    </option>
-                    {countries.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </Field>
             </div>

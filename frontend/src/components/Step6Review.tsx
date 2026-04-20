@@ -79,33 +79,74 @@ export function Step6Review({ data, onBack, onSubmitted }: Step6Props) {
         await scoreResume(resumeParts.join("\n\n"));
       }
 
-      if (data.portfolio.files.length > 0) {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session && data.portfolio.files.length > 0) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const file = data.portfolio.files[0];
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve((reader.result as string).split(",")[1]);
-              reader.onerror = reject;
-              reader.readAsDataURL(file);
-            });
-            await fetch(`${NODE_API}/applicants/submit/portfolio`, {
+          const file = data.portfolio.files[0];
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(",")[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          await fetch(`${NODE_API}/applicants/submit/portfolio`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              applicantId: session.user.id,
+              fileData: base64,
+              fileName: file.name,
+              mimeType: file.type || "application/octet-stream",
+            }),
+          });
+        } catch {
+          // Portfolio upload is non-fatal
+        }
+      }
+
+      // Upload supporting documents (transcript, IELTS, optional) to backend storage
+      if (session) {
+        try {
+          const docCategories: Array<{ key: keyof typeof data.documents; category: string }> = [
+            { key: "transcript", category: "transcript" },
+            { key: "ielts", category: "ielts" },
+            { key: "cvOptional", category: "cv_optional" },
+            { key: "statementOptional", category: "statement_optional" },
+            { key: "additional", category: "additional" },
+          ];
+
+          const docsToUpload: { category: string; fileData: string; fileName: string; mimeType: string }[] = [];
+
+          for (const { key, category } of docCategories) {
+            const files = data.documents[key] as File[];
+            if (!files || files.length === 0) continue;
+            for (const file of files) {
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve((reader.result as string).split(",")[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              });
+              docsToUpload.push({ category, fileData: base64, fileName: file.name, mimeType: file.type || "application/octet-stream" });
+            }
+          }
+
+          if (docsToUpload.length > 0) {
+            await fetch(`${NODE_API}/applicants/submit/documents`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${session.access_token}`,
               },
-              body: JSON.stringify({
-                applicantId: session.user.id,
-                fileData: base64,
-                fileName: file.name,
-                mimeType: file.type || "application/octet-stream",
-              }),
+              body: JSON.stringify({ applicantId: session.user.id, documents: docsToUpload }),
             });
           }
         } catch {
-          // Portfolio upload is non-fatal
+          // Document upload is non-fatal — form data is already submitted
         }
       }
 
@@ -288,7 +329,7 @@ export function Step6Review({ data, onBack, onSubmitted }: Step6Props) {
             </div>
             <div style={{ color: "#374151", lineHeight: 1.75, fontSize: 14 }}>
               Please <strong style={{ color: "#b91c1c" }}>do not close this tab</strong>.
-              Your application is being scored and submitted. This may take up to 30 seconds.
+              Your application is being scored and submitted. This may take up to 3 mins.
             </div>
             <div style={{ marginTop: 18, display: "flex", justifyContent: "center" }}>
               <div style={{ display: "flex", gap: 6 }}>

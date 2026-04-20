@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { adminFetch } from "../lib/api";
 
-type Reviewer = { id: string; name: string; email: string };
+type Reviewer = { id: string; name: string; email: string; active: boolean };
 type ApplicantRow = { assignedReviewerIds: string[] };
 
 export function ReviewerManagement() {
@@ -21,6 +21,9 @@ export function ReviewerManagement() {
   const [deleteTarget, setDeleteTarget] = useState<Reviewer | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Deactivate/reactivate state
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   function load() {
     adminFetch(`/reviewers`).then((r) => r.json()).then(setReviewers).catch(() => {});
@@ -62,6 +65,21 @@ export function ReviewerManagement() {
     setAdding(false);
     if (res.ok) { setName(""); setEmail(""); setPassword(""); load(); }
     else { const d = await res.json(); setError(d.error ?? "Failed to add reviewer."); }
+  }
+
+  async function toggleActive(reviewer: Reviewer) {
+    setTogglingId(reviewer.id);
+    const action = reviewer.active ? "deactivate" : "reactivate";
+    try {
+      const res = await adminFetch(`/reviewers/${reviewer.id}/${action}`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Failed");
+      load();
+    } catch {
+      // silently reload to sync state
+      load();
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function confirmDeleteReviewer() {
@@ -164,27 +182,49 @@ export function ReviewerManagement() {
                 <tbody>
                   {reviewers.map((r) => {
                     const assigned = assignedCounts[r.id] ?? 0;
+                    const isActive = r.active !== false;
                     return (
-                      <tr key={r.id}>
+                      <tr key={r.id} style={{ opacity: isActive ? 1 : 0.6 }}>
                         <td style={{ fontWeight: 600 }}>{r.name}</td>
                         <td className="muted">{r.email}</td>
                         <td>{assigned}</td>
                         <td>
                           <Badge
                             variant="outline"
-                            className={assigned > 0 ? "admin-badge admin-badge--info" : "admin-badge admin-badge--muted"}
+                            className={
+                              !isActive
+                                ? "admin-badge admin-badge--muted"
+                                : assigned > 0
+                                ? "admin-badge admin-badge--info"
+                                : "admin-badge admin-badge--muted"
+                            }
                           >
-                            {assigned > 0 ? "Active" : "Unassigned"}
+                            {!isActive ? "Deactivated" : assigned > 0 ? "Active" : "Unassigned"}
                           </Badge>
                         </td>
                         <td>
-                          <Button
-                            variant="outline"
-                            onClick={() => { setDeleteTarget(r); setDeleteError(null); }}
-                            style={{ color: "#ef4444", borderColor: "#fca5a5", fontSize: 13, padding: "4px 10px" }}
-                          >
-                            Remove
-                          </Button>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <Button
+                              variant="outline"
+                              onClick={() => toggleActive(r)}
+                              disabled={togglingId === r.id}
+                              style={{
+                                color: isActive ? "#b45309" : "#166534",
+                                borderColor: isActive ? "#fde68a" : "#bbf7d0",
+                                fontSize: 12,
+                                padding: "4px 10px",
+                              }}
+                            >
+                              {togglingId === r.id ? "…" : isActive ? "Deactivate" : "Reactivate"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => { setDeleteTarget(r); setDeleteError(null); }}
+                              style={{ color: "#ef4444", borderColor: "#fca5a5", fontSize: 12, padding: "4px 10px" }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
