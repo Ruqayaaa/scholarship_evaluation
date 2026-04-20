@@ -1008,8 +1008,6 @@ app.patch("/admin/applicants/:id/decision", async (req, res) => {
         final_decision: decision,
         decision_notes: notes || "",
         decision_at: new Date().toISOString(),
-        // Mirror the decision into status so admin list reflects it
-        ...(decision && decision !== "Pending" ? { status: decision } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", req.params.id)
