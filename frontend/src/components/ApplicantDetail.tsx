@@ -480,17 +480,6 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                       </ul>
                     </div>
                   )}
-                  {!(Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0) &&
-                   !(Array.isArray(re.score.improvements) && (re.score.improvements as string[]).length > 0) &&
-                   re.score.justification && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>AI NOTES:</div>
-                      <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.7 }}>{re.score.justification as string}</div>
-                    </div>
-                  )}
-                  {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && re.score.justification && (
-                    <div className="llm-overall-text" style={{ marginTop: 8 }}>{re.score.justification as string}</div>
-                  )}
                 </div>
               </CardContent>
             </Card>
