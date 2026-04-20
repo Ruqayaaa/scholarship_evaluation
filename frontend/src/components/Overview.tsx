@@ -19,14 +19,10 @@ type BackendApplicant = {
 };
 
 const STATS_CONFIG = [
-  { key: "total",       label: "Total",         sub: "All submissions"    },
-  { key: "submitted",   label: "Submitted",     sub: "Awaiting review"    },
-  { key: "underReview", label: "Under Review",  sub: "Reviewer assigned"  },
-  { key: "evaluated",   label: "Evaluated",     sub: "Review complete"    },
-  { key: "accepted",    label: "Accepted",      sub: "Final decision"     },
-  { key: "waitlisted",  label: "Waitlisted",    sub: "Final decision"     },
-  { key: "rejected",    label: "Rejected",      sub: "Final decision"     },
-  { key: "reviewers",   label: "Reviewers",     sub: "Total registered"   },
+  { key: "total",       label: "Total Applicants", sub: "All submissions"   },
+  { key: "submitted",   label: "Submitted",         sub: "Awaiting review"  },
+  { key: "underReview", label: "Under Review",      sub: "Reviewer assigned" },
+  { key: "reviewers",   label: "Active Reviewers",  sub: "Total registered"  },
 ] as const;
 
 export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
@@ -132,9 +128,18 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
                     <td className="admin-td--name">{a.name}</td>
                     <td className="admin-td--muted">{a.submittedAt}</td>
                     <td>
-                      <span className={`status ${a.status === "Under Review" ? "info" : ""}`}>
-                        {a.status}
-                      </span>
+                      {(() => {
+                        const S: Record<string, { bg: string; color: string }> = {
+                          "Submitted":    { bg: "#f1f5f9", color: "#475569" },
+                          "Under Review": { bg: "#e0f2fe", color: "#0369a1" },
+                          "Evaluated":    { bg: "#ede9fe", color: "#6d28d9" },
+                          "Accepted":     { bg: "#dcfce7", color: "#166534" },
+                          "Waitlisted":   { bg: "#fef3c7", color: "#92400e" },
+                          "Rejected":     { bg: "#fee2e2", color: "#991b1b" },
+                        };
+                        const s = S[a.status] ?? { bg: "#f1f5f9", color: "#475569" };
+                        return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: s.bg, color: s.color }}>{a.status}</span>;
+                      })()}
                     </td>
                     <td>
                       <Button
