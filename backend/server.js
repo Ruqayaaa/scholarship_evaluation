@@ -1016,9 +1016,10 @@ app.patch("/admin/applicants/:id/decision", async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) { console.error("Decision save error:", error); throw error; }
     res.json({ ok: true, applicant: await toApplicantShape(data) });
   } catch (err) {
+    console.error("Decision route exception:", err);
     res.status(500).json({ error: err.message });
   }
 });
