@@ -1093,9 +1093,8 @@ app.get("/reviewer/:reviewerId/applications/:appId/evaluation", ...requireReview
     if (req.userRole === "reviewer" && req.user.id !== req.params.reviewerId) {
       return res.status(403).json({ error: "Access denied." });
     }
-    const db = reqDb(req);
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("reviewer_evaluations")
       .select("*")
       .eq("application_id", req.params.appId)
@@ -1124,9 +1123,7 @@ app.patch("/reviewer/:reviewerId/applications/:appId/evaluation", ...requireRevi
       return res.status(400).json({ error: "Recommendation must be 'Yes' or 'No'." });
     }
 
-    const db = reqDb(req);
-
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("reviewer_evaluations")
       .upsert(
         {
