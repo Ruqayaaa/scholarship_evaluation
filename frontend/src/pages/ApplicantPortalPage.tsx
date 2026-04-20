@@ -144,7 +144,7 @@ export default function ApplicantPortalPage() {
         } else if (data.status) {
           // Any non-Draft status means it has been submitted
           setIsSubmitted(true);
-          if (data.finalDecision && data.finalDecision !== "Pending") {
+          if (data.decisionVisible && data.finalDecision && data.finalDecision !== "Pending") {
             setFinalDecision(data.finalDecision);
             if (data.decisionNotes) setDecisionNotes(data.decisionNotes);
           }

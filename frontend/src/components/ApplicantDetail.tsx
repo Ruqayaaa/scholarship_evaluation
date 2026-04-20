@@ -41,6 +41,7 @@ type BackendApplicant = {
   finalDecision: string;
   decisionNotes: string;
   decisionAt: string | null;
+  decisionVisible: boolean;
   interviewAt: string | null;
   interviewMessage: string;
   assignedReviewerIds: string[];
@@ -54,6 +55,31 @@ type BackendApplicant = {
     score: Record<string, number | string>;
   } | null;
 };
+
+function VisibilityToggle({ visible, saving, onChange }: { visible: boolean; saving: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <button
+        type="button"
+        onClick={() => !saving && onChange(!visible)}
+        disabled={saving}
+        style={{
+          width: 44, height: 24, borderRadius: 12, border: "none", cursor: saving ? "not-allowed" : "pointer",
+          background: visible ? "#16a34a" : "#d1d5db", position: "relative", transition: "background 0.2s", flexShrink: 0,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 3, left: visible ? 23 : 3, width: 18, height: 18,
+          borderRadius: "50%", background: "white", transition: "left 0.2s",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+        }} />
+      </button>
+      <span style={{ fontSize: 13, color: visible ? "#166534" : "#6b7280", fontWeight: 600 }}>
+        {visible ? "Visible to applicant" : "Hidden from applicant"}
+      </span>
+    </div>
+  );
+}
 
 const PS_CRITERIA = [
   { key: "interests_and_values", label: "Interests & Values", max: 20 },
@@ -94,6 +120,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
 
   const [decision, setDecision] = useState("Pending");
   const [decisionNotes, setDecisionNotes] = useState("");
+  const [decisionVisible, setDecisionVisible] = useState(false);
   const [savingDecision, setSavingDecision] = useState(false);
   const [decisionMsg, setDecisionMsg] = useState<string | null>(null);
 
@@ -110,6 +137,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
         setApplicant(data);
         setDecision(data.finalDecision || "Pending");
         setDecisionNotes(data.decisionNotes || "");
+        setDecisionVisible(data.decisionVisible ?? false);
         if (data.interviewAt) {
           // Convert ISO to datetime-local format (YYYY-MM-DDTHH:MM)
           setInterviewDate(data.interviewAt.slice(0, 16));
@@ -202,7 +230,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
     try {
       const res = await adminFetch(`/admin/applicants/${applicantId}/decision`, {
         method: "PATCH",
-        body: JSON.stringify({ decision, notes: decisionNotes }),
+        body: JSON.stringify({ decision, notes: decisionNotes, visible: decisionVisible }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -664,6 +692,32 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                     </div>
                   </div>
                 )}
+                <VisibilityToggle
+                  visible={decisionVisible}
+                  saving={savingDecision}
+                  onChange={async (val) => {
+                    setDecisionVisible(val);
+                    setSavingDecision(true);
+                    setDecisionMsg(null);
+                    try {
+                      const res = await adminFetch(`/admin/applicants/${applicantId}/decision`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ decision: applicant.finalDecision, notes: applicant.decisionNotes, visible: val }),
+                      });
+                      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || `Error ${res.status}`); }
+                      setDecisionMsg(val ? "Decision is now visible to applicant." : "Decision hidden from applicant.");
+                      await loadApplicant();
+                    } catch (err: unknown) {
+                      setDecisionMsg(err instanceof Error ? `Failed: ${err.message}` : "Failed to update.");
+                      setDecisionVisible(!val);
+                    } finally { setSavingDecision(false); }
+                  }}
+                />
+                {decisionMsg && (
+                  <span style={{ fontSize: 13, color: decisionMsg.includes("Failed") ? "#ef4444" : "#16a34a", fontWeight: 600 }}>
+                    {decisionMsg}
+                  </span>
+                )}
                 <p style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
                   This decision has been finalized and cannot be changed.
                 </p>
@@ -685,7 +739,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
-                    Notes (visible to applicant)
+                    Notes (optional)
                   </label>
                   <textarea
                     value={decisionNotes}
@@ -695,6 +749,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                     style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
                   />
                 </div>
+                <VisibilityToggle visible={decisionVisible} saving={false} onChange={setDecisionVisible} />
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Button className="admin-primary-btn" onClick={saveDecision} disabled={savingDecision || decision === "Pending"}>
                     {savingDecision ? "Saving…" : "Finalize Decision"}

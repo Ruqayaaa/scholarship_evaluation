@@ -146,6 +146,7 @@ async function toApplicantShape(app, db = supabase) {
   const portfolioName   = psInput._portfolio_name   || null;
   const interviewAt     = psInput._interview_at     || null;
   const interviewMessage = psInput._interview_message || "";
+  const decisionVisible = psInput._decision_visible === true;
 
   return {
     id: app.id,
@@ -157,6 +158,7 @@ async function toApplicantShape(app, db = supabase) {
     finalDecision: app.final_decision || "Pending",
     decisionNotes: app.decision_notes || "",
     decisionAt: app.decision_at || null,
+    decisionVisible,
     interviewAt,
     interviewMessage,
     assignedReviewerIds: assignments?.map((a) => a.reviewer_id) || [],
@@ -1000,7 +1002,14 @@ app.patch("/admin/applicants/:id/interview", async (req, res) => {
 // Uses service role — reqDb(req) is user-scoped and RLS blocks admin updates.
 app.patch("/admin/applicants/:id/decision", async (req, res) => {
   try {
-    const { decision, notes } = req.body;
+    const { decision, notes, visible } = req.body;
+
+    // Fetch current row so we can merge _decision_visible into the JSONB
+    const { data: current, error: fetchErr } = await supabase
+      .from("applications").select("personal_statement_input").eq("id", req.params.id).single();
+    if (fetchErr) { console.error("Decision fetch error:", fetchErr); throw fetchErr; }
+
+    const psInput = { ...(current.personal_statement_input || {}), _decision_visible: visible === true };
 
     const { data, error } = await supabase
       .from("applications")
@@ -1008,6 +1017,7 @@ app.patch("/admin/applicants/:id/decision", async (req, res) => {
         final_decision: decision,
         decision_notes: notes || "",
         decision_at: new Date().toISOString(),
+        personal_statement_input: psInput,
         updated_at: new Date().toISOString(),
       })
       .eq("id", req.params.id)
