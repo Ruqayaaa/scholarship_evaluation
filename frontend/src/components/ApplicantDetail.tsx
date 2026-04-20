@@ -436,55 +436,61 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
               </CardContent>
             </Card>
           )}
-          {re && (re.score.overall_score as number) > 0 && (
+          {re && (
             <Card className="admin-card">
               <CardHeader className="admin-card__header">
                 <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Resume Scores</CardTitle>
               </CardHeader>
               <CardContent className="admin-card__content">
-                <div className="rubric-list">
-                  {RESUME_CRITERIA.map(({ key, label, max }) => {
-                    const score = (re.score[key] as number) ?? 0;
-                    const pct = (score / max) * 100;
-                    return (
-                      <div key={key} className="rubric-row">
-                        <div className="rubric-top">
-                          <div className="rubric-criterion">{label}</div>
-                          <span className="admin-pill admin-pill--slate">{score} / {max}</span>
-                        </div>
-                        <div style={{ height: 6, background: "#e5e7eb", borderRadius: 4, marginTop: 4 }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: "#2563EB", borderRadius: 4 }} />
-                        </div>
+                {(re.score.overall_score as number) > 0 ? (
+                  <>
+                    <div className="rubric-list">
+                      {RESUME_CRITERIA.map(({ key, label, max }) => {
+                        const score = (re.score[key] as number) ?? 0;
+                        const pct = (score / max) * 100;
+                        return (
+                          <div key={key} className="rubric-row">
+                            <div className="rubric-top">
+                              <div className="rubric-criterion">{label}</div>
+                              <span className="admin-pill admin-pill--slate">{score} / {max}</span>
+                            </div>
+                            <div style={{ height: 6, background: "#e5e7eb", borderRadius: 4, marginTop: 4 }}>
+                              <div style={{ height: "100%", width: `${pct}%`, background: "#2563EB", borderRadius: 4 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="llm-overall">
+                      <div className="llm-overall-title">
+                        Overall: {(re.score.overall_score as number) ?? "—"} / 180
+                        {re.score.grade_pct != null && ` (${re.score.grade_pct}%)`}
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="llm-overall">
-                  <div className="llm-overall-title">
-                    Overall: {(re.score.overall_score as number) ?? "—"} / 180
-                    {re.score.grade_pct != null && ` (${re.score.grade_pct}%)`}
-                  </div>
-                  {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>STRENGTHS:</div>
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
-                        {(re.score.strengths as string[]).map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
+                      {Array.isArray(re.score.strengths) && (re.score.strengths as string[]).length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>STRENGTHS:</div>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                            {(re.score.strengths as string[]).map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {Array.isArray(re.score.improvements) && (re.score.improvements as string[]).length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>AREAS TO IMPROVE:</div>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                            {(re.score.improvements as string[]).map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {Array.isArray(re.score.improvements) && (re.score.improvements as string[]).length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, letterSpacing: "0.04em" }}>AREAS TO IMPROVE:</div>
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
-                        {(re.score.improvements as string[]).map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <p className="admin-empty">Resume submitted but not yet scored by AI.</p>
+                )}
               </CardContent>
             </Card>
           )}
-          {(!ps || (ps.score.overall_score as number) === 0) && (!re || (re.score.overall_score as number) === 0) && (
+          {!ps && !re && (
             <Card className="admin-card">
               <CardContent className="admin-card__content">
                 <p className="admin-empty">No scored submissions yet.</p>
