@@ -538,7 +538,7 @@ app.get("/admin/applicants/:id/documents/refresh", ...requireAdmin, async (req, 
     const refreshed = {};
     for (const [category, files] of Object.entries(docs)) {
       refreshed[category] = await Promise.all(
-        (files as any[]).map(async (f) => {
+        files.map(async (f) => {
           if (!f.path) return f;
           const { data: signedData } = await supabase.storage
             .from("documents")
