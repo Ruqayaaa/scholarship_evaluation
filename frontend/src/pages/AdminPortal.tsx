@@ -41,7 +41,7 @@ export default function AdminPortal() {
   const content = useMemo(() => {
     if (view === "applicants" && selectedApplicantId) {
       return (
-        <ApplicantDetail applicantId={selectedApplicantId} onBack={() => setSelectedApplicantId(null)} />
+        <ApplicantDetail applicantId={selectedApplicantId} onBack={() => { setSelectedApplicantId(null); setListKey((k) => k + 1); }} />
       );
     }
 

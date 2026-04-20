@@ -914,10 +914,15 @@ app.get("/admin/stats", ...requireAdmin, async (req, res) => {
       supabase.from("profiles").select("id").eq("role", "reviewer"),
     ]);
 
+    const appList = apps || [];
     res.json({
-      total: apps?.length || 0,
-      submitted: apps?.filter((a) => a.status === "Submitted").length || 0,
-      underReview: apps?.filter((a) => a.status === "Under Review").length || 0,
+      total: appList.length,
+      submitted: appList.filter((a) => a.status === "Submitted").length,
+      underReview: appList.filter((a) => a.status === "Under Review").length,
+      evaluated: appList.filter((a) => a.status === "Evaluated").length,
+      accepted: appList.filter((a) => a.status === "Accepted").length,
+      waitlisted: appList.filter((a) => a.status === "Waitlisted").length,
+      rejected: appList.filter((a) => a.status === "Rejected").length,
       reviewers: reviewerProfiles?.length || 0,
     });
   } catch (err) {

@@ -7,7 +7,7 @@ interface OverviewProps {
   cycleId?: string;
 }
 
-type Stats = { total: number; submitted: number; underReview: number; reviewers: number };
+type Stats = { total: number; submitted: number; underReview: number; evaluated: number; accepted: number; waitlisted: number; rejected: number; reviewers: number };
 type Row   = { id: string; name: string; submittedAt: string; status: string };
 type BackendApplicant = {
   id: string;
@@ -19,14 +19,18 @@ type BackendApplicant = {
 };
 
 const STATS_CONFIG = [
-  { key: "total",       label: "Total Applicants",  sub: "All submissions"   },
-  { key: "submitted",   label: "Submitted",          sub: "Awaiting review"  },
-  { key: "underReview", label: "Under Review",       sub: "Reviewer assigned" },
-  { key: "reviewers",   label: "Active Reviewers",   sub: "Total registered"  },
+  { key: "total",       label: "Total",         sub: "All submissions"    },
+  { key: "submitted",   label: "Submitted",     sub: "Awaiting review"    },
+  { key: "underReview", label: "Under Review",  sub: "Reviewer assigned"  },
+  { key: "evaluated",   label: "Evaluated",     sub: "Review complete"    },
+  { key: "accepted",    label: "Accepted",      sub: "Final decision"     },
+  { key: "waitlisted",  label: "Waitlisted",    sub: "Final decision"     },
+  { key: "rejected",    label: "Rejected",      sub: "Final decision"     },
+  { key: "reviewers",   label: "Reviewers",     sub: "Total registered"   },
 ] as const;
 
 export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
-  const [stats, setStats] = useState<Stats>({ total: 0, submitted: 0, underReview: 0, reviewers: 0 });
+  const [stats, setStats] = useState<Stats>({ total: 0, submitted: 0, underReview: 0, evaluated: 0, accepted: 0, waitlisted: 0, rejected: 0, reviewers: 0 });
   const [latest, setLatest] = useState<Row[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [deleting, setDeleting] = useState(false);
