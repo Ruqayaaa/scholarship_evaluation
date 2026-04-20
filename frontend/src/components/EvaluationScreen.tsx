@@ -4,6 +4,31 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { adminFetch } from "../lib/api";
 
+function ReviewerNotesBlock({
+  title, value, onChange, placeholder, disabled,
+}: {
+  title: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="reviewer-block">
+      <div className="reviewer-block-title">{title}</div>
+      <p className="reviewer-muted" style={{ marginBottom: 10 }}>{placeholder}</p>
+      <textarea
+        className="reviewer-textarea"
+        rows={4}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Add your notes here…"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
 const PS_CRITERIA: { key: keyof PsScores; label: string; max: number }[] = [
   { key: "interests_and_values", label: "Interests & Values",  max: 20 },
   { key: "academic_commitment",  label: "Academic Commitment", max: 20 },
@@ -283,31 +308,6 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
     );
   }
 
-  // ── Standalone reviewer notes block (matches Portfolio Notes pattern) ─────────
-  function ReviewerNotesBlock({
-    title, value, onChange, placeholder,
-  }: {
-    title: string;
-    value: string;
-    onChange: (v: string) => void;
-    placeholder: string;
-  }) {
-    return (
-      <div className="reviewer-block">
-        <div className="reviewer-block-title">{title}</div>
-        <p className="reviewer-muted" style={{ marginBottom: 10 }}>{placeholder}</p>
-        <textarea
-          className="reviewer-textarea"
-          rows={4}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={`Add your notes here…`}
-          disabled={isLocked}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="reviewer-page">
       <button className="back-btn" type="button" onClick={onBack}>
@@ -398,6 +398,7 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     value={psAiNotes}
                     onChange={setPsAiNotes}
                     placeholder="Record observations or comments about the personal statement AI scores."
+                    disabled={isLocked}
                   />
                 </>
               )}
@@ -427,6 +428,7 @@ export default function EvaluationScreen({ applicant, onBack }: Props) {
                     value={resumeAiNotes}
                     onChange={setResumeAiNotes}
                     placeholder="Record observations or comments about the resume AI scores."
+                    disabled={isLocked}
                   />
                 </>
               )}
