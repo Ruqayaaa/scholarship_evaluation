@@ -32,17 +32,19 @@ const STATS_CONFIG = [
 export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
   const [stats, setStats] = useState<Stats>({ total: 0, submitted: 0, underReview: 0, evaluated: 0, accepted: 0, waitlisted: 0, rejected: 0, reviewers: 0 });
   const [latest, setLatest] = useState<Row[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function loadData() {
+    setLoadingStats(true);
     const qs = cycleId ? `?cycleId=${cycleId}` : "";
 
     adminFetch(`/admin/stats${qs}`)
       .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
+      .then((d) => { setStats(d); setLoadingStats(false); })
+      .catch(() => { setLoadingStats(false); });
 
     adminFetch(`/admin/applicants${qs}`)
       .then((r) => r.json())
@@ -94,7 +96,7 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
         {STATS_CONFIG.map(({ key, label, sub }) => (
           <div key={key} className="ds-stat-card">
             <div className="ds-stat-label">{label}</div>
-            <div className="ds-stat-num">{stats[key]}</div>
+            <div className="ds-stat-num">{loadingStats ? "…" : stats[key]}</div>
             <div className="ds-stat-sub">{sub}</div>
           </div>
         ))}

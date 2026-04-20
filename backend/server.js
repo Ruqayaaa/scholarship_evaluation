@@ -1208,6 +1208,9 @@ app.patch("/admin/applicants/:id/decision", ...requireAdmin, async (req, res) =>
 
     const psInput = { ...(current.personal_statement_input || {}), _decision_visible: visible === true };
 
+    const FINAL_STATUSES = ["Accepted", "Rejected", "Waitlisted"];
+    const statusUpdate = FINAL_STATUSES.includes(decision) ? { status: decision } : {};
+
     const { data, error } = await supabase
       .from("applications")
       .update({
@@ -1216,6 +1219,7 @@ app.patch("/admin/applicants/:id/decision", ...requireAdmin, async (req, res) =>
         decision_at: new Date().toISOString(),
         personal_statement_input: psInput,
         updated_at: new Date().toISOString(),
+        ...statusUpdate,
       })
       .eq("id", req.params.id)
       .select()

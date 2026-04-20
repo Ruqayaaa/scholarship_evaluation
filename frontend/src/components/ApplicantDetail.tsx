@@ -296,9 +296,22 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
           <p className="detail-sub">Submitted: {new Date(applicant.submittedAt).toLocaleString()}</p>
         </div>
         <div className="detail-actions" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Badge variant="outline" className={applicant.status === "Under Review" ? "admin-badge admin-badge--info" : "admin-badge admin-badge--muted"}>
-            {applicant.status}
-          </Badge>
+          {(() => {
+            const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+              "Submitted":    { bg: "#f1f5f9", color: "#475569" },
+              "Under Review": { bg: "#e0f2fe", color: "#0369a1" },
+              "Evaluated":    { bg: "#ede9fe", color: "#6d28d9" },
+              "Accepted":     { bg: "#dcfce7", color: "#166534" },
+              "Waitlisted":   { bg: "#fef3c7", color: "#92400e" },
+              "Rejected":     { bg: "#fee2e2", color: "#991b1b" },
+            };
+            const s = STATUS_STYLES[applicant.status] ?? { bg: "#f1f5f9", color: "#475569" };
+            return (
+              <span style={{ background: s.bg, color: s.color, fontWeight: 700, fontSize: 13, padding: "4px 12px", borderRadius: 20 }}>
+                {applicant.status}
+              </span>
+            );
+          })()}
           {isDecisionLocked && (
             <span style={{ background: ds.bg, color: ds.color, fontWeight: 700, fontSize: 13, padding: "4px 12px", borderRadius: 20 }}>
               {applicant.finalDecision}
@@ -370,29 +383,41 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
           <CardHeader className="admin-card__header">
             <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>
               Reviewer Assignment
+              {isDecisionLocked && (
+                <span style={{ marginLeft: 12, fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: "#fef3c7", color: "#92400e" }}>
+                  Locked — decision finalized
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="admin-card__content">
+            {isDecisionLocked && (
+              <p style={{ fontSize: 13, color: "#92400e", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                A final decision has been made. Reviewer assignments cannot be changed.
+              </p>
+            )}
             {assignedReviewers.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
                 {assignedReviewers.map((r) => (
                   <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#e0f2fe", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>
                     <span style={{ fontWeight: 600 }}>{r.name}</span>
                     <span style={{ color: "#64748b" }}>{r.email}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeReviewer(r.id)}
-                      style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontWeight: 700, fontSize: 14 }}
-                    >
-                      ×
-                    </button>
+                    {!isDecisionLocked && (
+                      <button
+                        type="button"
+                        onClick={() => removeReviewer(r.id)}
+                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontWeight: 700, fontSize: 14 }}
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
             ) : (
               <p className="muted" style={{ marginBottom: 12 }}>No reviewers assigned yet.</p>
             )}
-            {unassignedReviewers.length > 0 ? (
+            {!isDecisionLocked && (unassignedReviewers.length > 0 ? (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <select
                   value={selectedReviewerId}
@@ -414,7 +439,7 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
               <p className="muted">No reviewers exist yet. Add reviewers in the Reviewers tab first.</p>
             ) : (
               <p className="muted">All available reviewers are already assigned.</p>
-            )}
+            ))}
             {assignError && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8, fontWeight: 600 }}>{assignError}</p>}
           </CardContent>
         </Card>
