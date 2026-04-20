@@ -532,52 +532,6 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
             </Card>
           )}
 
-          {/* Reviewer notes on AI scores */}
-          {applicant.reviewerEvaluations.length > 0 && (() => {
-            const notedEvals = applicant.reviewerEvaluations.filter((ev) => {
-              const s = ev.scores as Record<string, unknown>;
-              return s?._ps_ai_notes || s?._resume_ai_notes;
-            });
-            if (!notedEvals.length) return null;
-            return (
-              <Card className="admin-card" style={{ gridColumn: "1 / -1" }}>
-                <CardHeader className="admin-card__header">
-                  <CardTitle className="admin-card__title" style={{ color: "var(--navy)" }}>Reviewer Notes on AI Scores</CardTitle>
-                </CardHeader>
-                <CardContent className="admin-card__content">
-                  <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                    {notedEvals.map((ev) => {
-                      const reviewer = reviewers.find((r) => r.id === ev.reviewer_id);
-                      const s = ev.scores as Record<string, unknown>;
-                      return (
-                        <div key={ev.id} style={{ borderLeft: "3px solid #e2e8f0", paddingLeft: 14 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 10 }}>
-                            {reviewer?.name || "Reviewer"}
-                          </div>
-                          {s._ps_ai_notes && (
-                            <div style={{ marginBottom: 10 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Personal Statement Notes</div>
-                              <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                                {String(s._ps_ai_notes)}
-                              </div>
-                            </div>
-                          )}
-                          {s._resume_ai_notes && (
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Resume Notes</div>
-                              <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                                {String(s._resume_ai_notes)}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
 
           {((ps && (ps.score.overall_score as number) > 0) || (re && (re.score.overall_score as number) > 0)) && !isDecisionLocked && (
             <Card className="admin-card" style={{ gridColumn: "1 / -1" }}>
@@ -698,6 +652,31 @@ export function ApplicantDetail({ applicantId, onBack }: Props) {
                         </div>
                       </div>
                     )}
+                    {ev.scores && (() => {
+                      const sn = ev.scores as Record<string, unknown>;
+                      const psNotes = sn._ps_ai_notes ? String(sn._ps_ai_notes) : null;
+                      const reNotes = sn._resume_ai_notes ? String(sn._resume_ai_notes) : null;
+                      if (!psNotes && !reNotes) return null;
+                      return (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Notes on AI Scores</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {psNotes && (
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Personal Statement</div>
+                                <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb" }}>{psNotes}</div>
+                              </div>
+                            )}
+                            {reNotes && (
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Resume</div>
+                                <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e5e7eb" }}>{reNotes}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {ev.scores && (() => {
                       const s = ev.scores as Record<string, number>;
                       const pKeys = ["p_creativity", "p_technical", "p_relevance", "p_impact"];

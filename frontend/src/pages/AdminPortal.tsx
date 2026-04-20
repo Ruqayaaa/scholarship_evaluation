@@ -16,6 +16,7 @@ export default function AdminPortal() {
   const [view, setView] = useState<AdminView>("overview");
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
   const [listKey, setListKey] = useState(0);
+  const [overviewKey, setOverviewKey] = useState(0);
 
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>("");
@@ -47,7 +48,7 @@ export default function AdminPortal() {
 
     switch (view) {
       case "overview":
-        return <Overview onViewApplicants={() => setView("applicants")} cycleId={selectedCycleId} />;
+        return <Overview key={overviewKey} onViewApplicants={() => { setListKey((k) => k + 1); setView("applicants"); }} cycleId={selectedCycleId} />;
 
       case "applicants":
         return (
@@ -88,9 +89,9 @@ export default function AdminPortal() {
         );
 
       default:
-        return <Overview onViewApplicants={() => setView("applicants")} cycleId={selectedCycleId} />;
+        return <Overview key={overviewKey} onViewApplicants={() => { setListKey((k) => k + 1); setView("applicants"); }} cycleId={selectedCycleId} />;
     }
-  }, [view, selectedApplicantId, listKey, selectedCycleId, cycles]);
+  }, [view, selectedApplicantId, listKey, overviewKey, selectedCycleId, cycles]);
 
   return (
     <div className="bg-shell">
@@ -101,6 +102,7 @@ export default function AdminPortal() {
             onNavigate={(v) => {
               setSelectedApplicantId(null);
               if (v === "applicants") setListKey((k) => k + 1);
+              if (v === "overview") setOverviewKey((k) => k + 1);
               setView(v);
             }}
           />
