@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-type Mode = "login" | "signup" | "reset";
+type Mode = "login" | "signup" | "reset" | "new-password";
 
 function parseAuthError(err: unknown): string {
   if (!(err instanceof Error)) return "An unexpected error occurred.";
@@ -69,10 +69,45 @@ export function ApplicantAuth() {
     return null;
   }
 
+  // Detect PASSWORD_RECOVERY event from Supabase reset email link
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("new-password");
+        setError(null);
+        setSuccess(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (mode === "new-password") {
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      const pwErr = validatePassword(password);
+      if (pwErr) { setError(pwErr); return; }
+      setLoading(true);
+      try {
+        const { error: updateErr } = await supabase.auth.updateUser({ password });
+        if (updateErr) throw updateErr;
+        setSuccess("Password updated successfully! You can now log in.");
+        setPassword("");
+        setConfirmPassword("");
+        setTimeout(() => switchMode("login"), 2000);
+      } catch (err) {
+        setError(parseAuthError(err));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     if (mode === "reset") {
       setLoading(true);
@@ -152,11 +187,11 @@ export function ApplicantAuth() {
 
         <div className="auth-tag">SCHOLARSHIP PORTAL</div>
         <h2 className="auth-title">
-          {mode === "login" ? "Welcome Back" : mode === "signup" ? "Create Account" : "Reset Password"}
+          {mode === "login" ? "Welcome Back" : mode === "signup" ? "Create Account" : mode === "new-password" ? "Set New Password" : "Reset Password"}
         </h2>
         <p className="auth-subtitle">{subtitle}</p>
 
-        {mode !== "reset" && (
+        {mode !== "reset" && mode !== "new-password" && (
           <div className="auth-tabs">
             <button
               type="button"
@@ -188,7 +223,21 @@ export function ApplicantAuth() {
             />
           </div>
 
-          {mode !== "reset" && (
+          {(mode === "new-password") && (
+            <div>
+              <label className="auth-label">New Password</label>
+              <input
+                className="auth-input"
+                type="password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {mode !== "reset" && mode !== "new-password" && (
             <div>
               <label className="auth-label">Password</label>
               <input
@@ -202,7 +251,7 @@ export function ApplicantAuth() {
             </div>
           )}
 
-          {mode === "signup" && (
+          {(mode === "signup" || mode === "new-password") && (
             <div>
               <label className="auth-label">Confirm Password</label>
               <input
@@ -230,6 +279,8 @@ export function ApplicantAuth() {
               ? "LOG IN"
               : mode === "signup"
               ? "CREATE ACCOUNT"
+              : mode === "new-password"
+              ? "SET NEW PASSWORD"
               : "SEND RESET LINK"}
           </button>
         </form>
