@@ -19,7 +19,8 @@ type BackendApplicant = {
   id: string;
   name: string;
   submittedAt: string;
-  status: "Submitted" | "Under Review";
+  status: string;
+  finalDecision: string;
   assignedReviewerIds: string[];
   returning?: boolean;
   personalStatement: { input: Record<string, unknown>; score: Record<string, unknown> } | null;
@@ -65,7 +66,7 @@ export function ApplicantsList({ onViewApplicant, cycleId }: ApplicantsListProps
             id: a.id,
             name: a.name,
             submittedAt: new Date(a.submittedAt).toLocaleString(),
-            status: a.status,
+            status: (a.finalDecision && a.finalDecision !== "Pending") ? a.finalDecision : a.status,
             assignedCount: a.assignedReviewerIds.length,
             returning: a.returning ?? false,
           }))

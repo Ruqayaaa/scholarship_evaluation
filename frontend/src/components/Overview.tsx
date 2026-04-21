@@ -14,6 +14,7 @@ type BackendApplicant = {
   name: string;
   submittedAt: string;
   status: string;
+  finalDecision: string;
   personalStatement: { score: Record<string, number> } | null;
   resume: { score: Record<string, number> } | null;
 };
@@ -52,7 +53,7 @@ export function Overview({ onViewApplicants, cycleId }: OverviewProps) {
             id: a.id,
             name: a.name,
             submittedAt: new Date(a.submittedAt).toLocaleDateString(),
-            status: a.status,
+            status: (a.finalDecision && a.finalDecision !== "Pending") ? a.finalDecision : a.status,
           }));
         setLatest(rows);
       })
